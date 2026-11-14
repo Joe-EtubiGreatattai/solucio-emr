@@ -21,6 +21,7 @@ export const ROLE_NAV = {
   ],
   doctor: [
     { to: '/doctor', label: 'My queue', icon: Stethoscope },
+    { to: '/doctor/patients', label: 'Patients', icon: Users },
     { to: '/procedures', label: 'Procedures', icon: Syringe },
   ],
   lab: [

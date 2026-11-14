@@ -5,6 +5,8 @@ import OnlineAppointments from './pages/reception/OnlineAppointments.jsx';
 import Triage from './pages/triage/Triage.jsx';
 import DoctorQueue from './pages/doctor/DoctorQueue.jsx';
 import Consultation from './pages/doctor/Consultation.jsx';
+import DoctorPatients from './pages/doctor/DoctorPatients.jsx';
+import DoctorPatientRecord from './pages/doctor/DoctorPatientRecord.jsx';
 import LabWorklist from './pages/lab/LabWorklist.jsx';
 import Procedures from './pages/procedures/Procedures.jsx';
 import DispenseQueue from './pages/pharmacy/DispenseQueue.jsx';
@@ -31,6 +33,8 @@ export const routes = [
   { path: '/reception/appointments', element: <OnlineAppointments /> },
   { path: '/triage', element: <Triage /> },
   { path: '/doctor', element: <DoctorQueue /> },
+  { path: '/doctor/patients', element: <DoctorPatients /> },
+  { path: '/doctor/patients/:patientId', element: <DoctorPatientRecord /> },
   { path: '/doctor/visit/:visitId', element: <Consultation /> },
   { path: '/lab', element: <LabWorklist /> },
   { path: '/lab/done', element: <LabWorklist done key="done" /> },
