@@ -1,6 +1,6 @@
 import {
   Banknote, BarChart3, BedDouble, Building2, CalendarDays, ClipboardList, FlaskConical, HeartPulse, History, Inbox,
-  ArrowLeftRight, Package, Pill, ReceiptText, ScrollText, ShieldCheck, Stethoscope, Syringe, Users, Wallet, Warehouse,
+  ArrowLeftRight, BookMarked, Boxes, LayoutDashboard, Package, Pill, ReceiptText, ScrollText, ShieldCheck, Stethoscope, Syringe, Users, Wallet, Warehouse,
 } from 'lucide-react';
 
 export const ROLE_LABEL = {
@@ -33,12 +33,16 @@ export const ROLE_NAV = {
   pharmacy: [
     { to: '/pharmacy', label: 'Prescriptions', icon: Pill, end: true },
     { to: '/pharmacy/transfers', label: 'Transfers in', icon: ArrowLeftRight },
+    { to: '/pharmacy/supplies', label: 'Supplies', icon: Boxes },
     { to: '/pharmacy/stock', label: 'Stock', icon: Package },
     { to: '/pharmacy/receive', label: 'Receive stock', icon: Inbox },
   ],
   store: [
+    { to: '/store/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
     { to: '/store', label: 'General Store', icon: Warehouse, end: true },
     { to: '/store/transfers', label: 'Transfers', icon: ArrowLeftRight },
+    { to: '/store/formulary', label: 'Drug formulary', icon: BookMarked },
+    { to: '/store/movements', label: 'Stock movements', icon: ScrollText },
   ],
   cashier: [
     { to: '/cashier', label: 'Awaiting payment', icon: Wallet, end: true },
@@ -55,6 +59,7 @@ export const ROLE_NAV = {
     { to: '/wards', label: 'Wards & beds', icon: BedDouble },
     { to: '/store', label: 'General Store', icon: Warehouse },
     { to: '/store/transfers', label: 'Store transfers', icon: ArrowLeftRight },
+    { to: '/store/formulary', label: 'Drug formulary', icon: BookMarked },
     { to: '/admin/hmos', label: 'HMOs', icon: ShieldCheck },
     { to: '/admin/clinics', label: 'Clinics', icon: Building2 },
     { to: '/admin/staff', label: 'Staff', icon: Users },

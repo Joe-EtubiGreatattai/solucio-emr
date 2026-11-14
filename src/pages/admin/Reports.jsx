@@ -4,6 +4,7 @@ import useFetch from '../../lib/useFetch';
 import { useAuth } from '../../auth.jsx';
 import { date, fullName, naira } from '../../lib/format';
 import { Card, Empty, PageHeader, Spinner, StatCard, Tabs } from '../../components/ui';
+import { StockMovementsReport } from '../store/StockMovements.jsx';
 
 const today = () => new Date(Date.now() + 3600000).toISOString().slice(0, 10);
 const monthStart = () => `${today().slice(0, 8)}01`;
@@ -16,6 +17,7 @@ export default function Reports() {
   const [tab, setTab] = useState('takings');
   const tabs = [{ value: 'takings', label: 'Takings' }, { value: 'revenue', label: 'Revenue' }, { value: 'hmo', label: 'HMOs owe' }, { value: 'owing', label: 'Patients owe' }];
   if (can('pharmacy')) tabs.push({ value: 'stock', label: 'Stock value' });
+  if (can('pharmacy') || can('store')) tabs.push({ value: 'movements', label: 'Stock movements' });
   return (
     <div>
       <PageHeader title="Reports" actions={['takings', 'revenue'].includes(tab) && <>
@@ -28,6 +30,7 @@ export default function Reports() {
       {tab === 'hmo' && <HmoOwe />}
       {tab === 'owing' && <Owing />}
       {tab === 'stock' && <StockValue />}
+      {tab === 'movements' && <StockMovementsReport />}
     </div>
   );
 }

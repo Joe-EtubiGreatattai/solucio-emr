@@ -22,6 +22,10 @@ const WORDS = {
   'store.item.create': 'Added a General Store item', 'store.item.update': 'Edited a General Store item',
   'store.purchase.receive': 'Received a General Store purchase', 'store.adjust': 'Adjusted General Store stock',
   'store.transfer.create': 'Sent a General Store transfer to Pharmacy', 'store.transfer.receive': 'Received a General Store transfer',
+  'store.alert.resolve': 'Resolved a stock alert',
+  'formulary.group.create': 'Added a drug group', 'formulary.group.update': 'Edited a drug group',
+  'formulary.generic.create': 'Added a generic drug', 'formulary.generic.update': 'Edited a generic drug',
+  'formulary.product.create': 'Added a drug product', 'formulary.product.update': 'Edited a drug product',
   'ward.create': 'Added a ward', 'admission.create': 'Admitted a patient', 'admission.transfer': 'Moved a patient to another bed', 'admission.discharge': 'Discharged a patient',
 };
 const KEY_WORDS = { patientNo: 'Patient', visitNo: 'Visit', name: 'Item', reason: 'Reason', qty: 'Quantity', total: 'Total', kind: 'Type', code: 'Code', authCode: 'Code', ward: 'Ward', bedNo: 'Bed', toWard: 'To ward', toBed: 'To bed', test: 'Test', fileName: 'File', imported: 'Imported', ip: 'From' };

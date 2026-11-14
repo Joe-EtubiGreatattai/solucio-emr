@@ -10,17 +10,17 @@ import { Link } from 'react-router-dom';
 
 export default function Store() {
   const { data, loading, error, reload } = useFetch('/store', { initial: [] });
-  const { data: alerts, reload: reloadAlerts } = useFetch('/store/alerts', { initial: { low: [], expiringSoon: [], expired: [] } });
+  const { data: alerts, reload: reloadAlerts } = useFetch('/store/alerts?status=open', { initial: [] });
   const { data: drugs } = useFetch('/store/drugs', { initial: [] });
   const refresh = useCallback(() => { reload(); reloadAlerts(); }, [reload, reloadAlerts]);
   useLive(['store', 'transfer'], refresh);
-  const [tab, setTab] = useState('all');
+  const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get('tab') === 'alerts' ? 'alerts' : 'all'));
   const [query, setQuery] = useState('');
   const [editItem, setEditItem] = useState(null);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [adjustBatch, setAdjustBatch] = useState(null);
   const [historyItem, setHistoryItem] = useState(null);
-  const alertCount = alerts.low.length + alerts.expiringSoon.length + alerts.expired.length;
+  const alertCount = alerts.length;
   const list = useMemo(() => data.filter((item) => !query || `${item.name} ${item.code} ${item.category || ''}`.toLowerCase().includes(query.toLowerCase())), [data, query]);
   const totals = data.reduce((sum, item) => sum + item.onHand, 0);
 
@@ -58,11 +58,7 @@ export default function Store() {
             </tbody>
           </table>
         ) : (
-          <div className="space-y-4 p-4 sm:p-5">
-            <AlertList title="Running low" color="amber" rows={alerts.low.map((item) => `${item.name}: ${item.onHand} ${data.find((x) => String(x._id) === String(item.storeItem))?.unit || 'units'} left (reorder at ${item.reorderLevel})`)} />
-            <AlertList title="Expiring within 90 days" color="amber" rows={alerts.expiringSoon.map((batch) => `${batch.name}, batch ${batch.batchNo}: ${batch.qtyOnHand} expire ${date(batch.expiry)}`)} />
-            <AlertList title="Expired (not counted as usable stock)" color="red" rows={alerts.expired.map((batch) => `${batch.name}, batch ${batch.batchNo}: ${batch.qtyOnHand} expired ${date(batch.expiry)}`)} />
-          </div>
+          <AlertsPanel onResolved={refresh} />
         )}
       </Card>
 
@@ -84,8 +80,58 @@ function StockLevel({ onHand, reorder, unit }) {
   return <span className={`whitespace-nowrap font-semibold ${color}`}>{onHand.toLocaleString()} <span className="text-xs font-normal text-slate-500">{unit}</span>{onHand <= 0 ? <Badge color="red" className="ml-2">Out</Badge> : low ? <Badge color="amber" className="ml-2">Low</Badge> : null}</span>;
 }
 
-function AlertList({ title, rows, color }) {
-  return <section><h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800"><AlertTriangle size={16} className={color === 'red' ? 'text-rose-600' : 'text-amber-600'} />{title}<Badge color={color}>{rows.length}</Badge></h3>{rows.length ? <ul className="ml-6 list-disc space-y-1 text-sm text-slate-700">{rows.map((row) => <li key={row}>{row}</li>)}</ul> : <p className="ml-6 text-sm text-slate-500">None.</p>}</section>;
+const ALERT_META = {
+  out: ['Out of stock', 'red'], low: ['Running low', 'amber'],
+  expiring: ['Expiring soon', 'amber'], expired: ['Expired', 'red'],
+};
+
+function AlertsPanel({ onResolved }) {
+  const [view, setView] = useState('open');
+  const { data: alerts, loading, reload } = useFetch(`/store/alerts?status=${view}`, { initial: [] });
+  const [resolve, setResolve] = useState(null);
+  return (
+    <div className="p-4 sm:p-5">
+      <div className="mb-3"><Tabs value={view} onChange={setView} tabs={[{ value: 'open', label: 'Open' }, { value: 'resolved', label: 'Resolved' }]} /></div>
+      {loading ? <Spinner /> : !alerts.length ? (
+        <p className="py-8 text-center text-sm text-slate-500">{view === 'open' ? 'No open alerts. Everything is in order.' : 'Nothing resolved yet.'}</p>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {alerts.map((a) => {
+            const [label, color] = ALERT_META[a.kind] || [a.kind, 'slate'];
+            return (
+              <li key={a._id} className="flex flex-wrap items-center gap-3 py-3">
+                <Badge color={color}>{label}</Badge>
+                <span className="min-w-0 flex-1 text-sm text-slate-800">{a.detail || a.name}
+                  {a.status === 'resolved' && <span className="block text-xs text-slate-500">Resolved{a.resolvedBy?.name ? ` by ${a.resolvedBy.name}` : ''}{a.note ? ` · ${a.note}` : ''}</span>}
+                </span>
+                {a.status === 'open' && <Button size="sm" variant="secondary" onClick={() => setResolve(a)}>Resolve</Button>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {resolve && <ResolveModal alert={resolve} onClose={() => setResolve(null)} onDone={() => { reload(); onResolved?.(); }} />}
+    </div>
+  );
+}
+
+function ResolveModal({ alert, onClose, onDone }) {
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function go() {
+    setBusy(true); setError('');
+    try { await api(`/store/alerts/${alert._id}/resolve`, { method: 'POST', body: { note } }); toast.success('Alert resolved'); onDone(); onClose(); }
+    catch (e) { setError(e.message); } finally { setBusy(false); }
+  }
+  return (
+    <Modal open onClose={onClose} title="Resolve alert" size="sm" guardChanges={false}
+      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button loading={busy} disabled={!note.trim()} onClick={go}>Resolve</Button></>}>
+      <p className="mb-3 text-sm text-slate-600">{alert.detail || alert.name}</p>
+      <Field label="What was done?"><input className="input" autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Reordered from supplier, removed expired stock" /></Field>
+      <div className="mt-2"><ErrorNote>{error}</ErrorNote></div>
+    </Modal>
+  );
 }
 
 function ItemModal({ item, drugs, onClose, onDone }) {

@@ -9,8 +9,12 @@ import DoctorPatients from './pages/doctor/DoctorPatients.jsx';
 import DoctorPatientRecord from './pages/doctor/DoctorPatientRecord.jsx';
 import WardManagement from './pages/wards/WardManagement.jsx';
 import Store from './pages/store/Store.jsx';
+import StoreDashboard from './pages/store/Dashboard.jsx';
+import Formulary from './pages/store/Formulary.jsx';
+import StockMovementsPage from './pages/store/StockMovements.jsx';
 import StoreTransfers from './pages/store/Transfers.jsx';
 import IncomingTransfers from './pages/pharmacy/IncomingTransfers.jsx';
+import PharmacyStore from './pages/pharmacy/PharmacyStore.jsx';
 import LabWorklist from './pages/lab/LabWorklist.jsx';
 import Procedures from './pages/procedures/Procedures.jsx';
 import DispenseQueue from './pages/pharmacy/DispenseQueue.jsx';
@@ -41,8 +45,12 @@ export const routes = [
   { path: '/patients/:patientId', element: <DoctorPatientRecord /> },
   { path: '/wards', element: <WardManagement /> },
   { path: '/store', element: <Store /> },
+  { path: '/store/dashboard', element: <StoreDashboard /> },
+  { path: '/store/formulary', element: <Formulary /> },
+  { path: '/store/movements', element: <StockMovementsPage /> },
   { path: '/store/transfers', element: <StoreTransfers /> },
   { path: '/pharmacy/transfers', element: <IncomingTransfers /> },
+  { path: '/pharmacy/supplies', element: <PharmacyStore /> },
   { path: '/doctor/patients', element: <DoctorPatients /> },
   { path: '/doctor/patients/:patientId', element: <DoctorPatientRecord /> },
   { path: '/doctor/visit/:visitId', element: <Consultation /> },
