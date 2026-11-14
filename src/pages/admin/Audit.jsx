@@ -19,6 +19,9 @@ const WORDS = {
   'claim.submit': 'Sent an HMO claim', 'claim.paid': 'Recorded an HMO payment', 'claim.reject': 'Marked an item rejected by the HMO',
   'price.create': 'Added a price list item', 'price.update': 'Changed a price', 'hmo.create': 'Added an HMO', 'hmo.update': 'Edited an HMO', 'hmo.plan.create': 'Added an HMO plan', 'hmo.plan.update': 'Edited an HMO plan',
   'clinic.create': 'Added a clinic', 'clinic.update': 'Edited a clinic',
+  'store.item.create': 'Added a General Store item', 'store.item.update': 'Edited a General Store item',
+  'store.purchase.receive': 'Received a General Store purchase', 'store.adjust': 'Adjusted General Store stock',
+  'store.transfer.create': 'Sent a General Store transfer to Pharmacy', 'store.transfer.receive': 'Received a General Store transfer',
   'ward.create': 'Added a ward', 'admission.create': 'Admitted a patient', 'admission.transfer': 'Moved a patient to another bed', 'admission.discharge': 'Discharged a patient',
 };
 const KEY_WORDS = { patientNo: 'Patient', visitNo: 'Visit', name: 'Item', reason: 'Reason', qty: 'Quantity', total: 'Total', kind: 'Type', code: 'Code', authCode: 'Code', ward: 'Ward', bedNo: 'Bed', toWard: 'To ward', toBed: 'To bed', test: 'Test', fileName: 'File', imported: 'Imported', ip: 'From' };

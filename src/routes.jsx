@@ -8,6 +8,9 @@ import Consultation from './pages/doctor/Consultation.jsx';
 import DoctorPatients from './pages/doctor/DoctorPatients.jsx';
 import DoctorPatientRecord from './pages/doctor/DoctorPatientRecord.jsx';
 import WardManagement from './pages/wards/WardManagement.jsx';
+import Store from './pages/store/Store.jsx';
+import StoreTransfers from './pages/store/Transfers.jsx';
+import IncomingTransfers from './pages/pharmacy/IncomingTransfers.jsx';
 import LabWorklist from './pages/lab/LabWorklist.jsx';
 import Procedures from './pages/procedures/Procedures.jsx';
 import DispenseQueue from './pages/pharmacy/DispenseQueue.jsx';
@@ -37,6 +40,9 @@ export const routes = [
   { path: '/patients', element: <DoctorPatients /> },
   { path: '/patients/:patientId', element: <DoctorPatientRecord /> },
   { path: '/wards', element: <WardManagement /> },
+  { path: '/store', element: <Store /> },
+  { path: '/store/transfers', element: <StoreTransfers /> },
+  { path: '/pharmacy/transfers', element: <IncomingTransfers /> },
   { path: '/doctor/patients', element: <DoctorPatients /> },
   { path: '/doctor/patients/:patientId', element: <DoctorPatientRecord /> },
   { path: '/doctor/visit/:visitId', element: <Consultation /> },
