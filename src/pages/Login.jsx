@@ -75,6 +75,9 @@ export default function Login() {
           <p className="mt-8 flex items-center justify-center gap-2 text-sm text-slate-500">
             <Lock className="h-4 w-4" /> Need access? Ask an EMR administrator.
           </p>
+          <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+            Powered by <img src={`${import.meta.env.BASE_URL}icon.png`} alt="" className="h-4 w-4 rounded" /> <span className="font-semibold text-slate-500">HealOS</span>
+          </p>
         </div>
       </div>
     </div>
