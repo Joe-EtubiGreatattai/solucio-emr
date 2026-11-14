@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Clock, ShieldCheck, Wallet } from 'lucide-react';
+import { Clock, Search, ShieldCheck, Wallet } from 'lucide-react';
 import useFetch from '../../lib/useFetch';
 import { useLive } from '../../lib/live';
 import { fullName, minutes, naira } from '../../lib/format';
@@ -12,8 +12,11 @@ export default function Awaiting() {
   const { data, loading, error, reload } = useFetch('/cashier/awaiting', { initial: [] });
   useLive(['queue', 'bill', 'visit'], useCallback(() => reload(), [reload]));
   const [visitId, setVisitId] = useState(null);
+  const [query, setQuery] = useState('');
   const visits = data || [];
   const toCollect = visits.reduce((n, v) => n + Math.max(0, v.balanceKobo || 0), 0);
+  const term = query.trim().toLowerCase();
+  const shown = visits.filter((v) => !term || `${fullName(v.patient)} ${v.patient?.patientNo || ''}`.toLowerCase().includes(term));
 
   return (
     <div className="grid gap-4 lg:grid-cols-[21rem_minmax(0,1fr)] lg:items-start">
@@ -22,13 +25,20 @@ export default function Awaiting() {
           <div className="border-b border-slate-100 px-4 py-4">
             <h1 className="text-xl font-semibold text-slate-900">Awaiting payment</h1>
             <p className="mt-0.5 text-sm text-slate-500">{visits.length ? <>{visits.length} bill{visits.length === 1 ? '' : 's'} · <span className="money">{naira(toCollect, { decimals: 0 })}</span> to collect</> : 'No bills waiting'}</p>
+            {visits.length > 0 && (
+              <div className="relative mt-3">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input className="input !py-2 pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search patient or number" aria-label="Search bills awaiting payment" />
+              </div>
+            )}
           </div>
           {loading ? <div className="space-y-2 p-4">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
             : error ? <p className="p-4 text-sm text-rose-700">{error}</p>
               : !visits.length ? <p className="px-4 py-10 text-center text-sm text-slate-500">Patients appear here when the doctor finishes their visit.</p>
+                : !shown.length ? <p className="px-4 py-10 text-center text-sm text-slate-500">No patients match your search.</p>
                 : (
                   <ul className="max-h-[calc(100vh-13rem)] divide-y divide-slate-100 overflow-y-auto">
-                    {visits.map((v) => {
+                    {shown.map((v) => {
                       const active = v._id === visitId;
                       const w = waited(v.completedAt);
                       return (

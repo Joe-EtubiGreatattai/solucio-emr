@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Syringe } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Search, Syringe } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../api.js';
 import useFetch from '../../lib/useFetch';
@@ -13,9 +13,12 @@ export default function Procedures() {
   const { data, loading, error, reload } = useFetch('/procedures/queue', { initial: [] });
   useLive(['queue'], useCallback(() => reload(), [reload]));
   const [selectedId, setSelectedId] = useState(null);
-  const list = [...(data || [])].sort((a, b) => ((a.visit?.priority === 1 ? 0 : 1) - (b.visit?.priority === 1 ? 0 : 1)) || (new Date(a.createdAt) - new Date(b.createdAt)));
-  const selected = list.find((o) => o._id === selectedId);
-  const after = (id) => { const rest = list.filter((o) => o._id !== id); setSelectedId(rest[0]?._id || null); reload(); };
+  const [query, setQuery] = useState('');
+  const all = [...(data || [])].sort((a, b) => ((a.visit?.priority === 1 ? 0 : 1) - (b.visit?.priority === 1 ? 0 : 1)) || (new Date(a.createdAt) - new Date(b.createdAt)));
+  const term = query.trim().toLowerCase();
+  const list = all.filter((o) => !term || `${o.name} ${fullName(o.patient)} ${o.patient?.patientNo || ''}`.toLowerCase().includes(term));
+  const selected = all.find((o) => o._id === selectedId);
+  const after = (id) => { const rest = all.filter((o) => o._id !== id); setSelectedId(rest[0]?._id || null); reload(); };
 
   return (
     <div className="grid gap-4 lg:grid-cols-[21rem_minmax(0,1fr)] lg:items-start">
@@ -23,11 +26,18 @@ export default function Procedures() {
         <div className="card overflow-hidden">
           <div className="border-b border-slate-100 px-4 py-4">
             <h1 className="text-xl font-semibold text-slate-900">Procedures</h1>
-            <p className="mt-0.5 text-sm text-slate-500">{list.length ? `${list.length} waiting` : 'Nothing waiting'}{list.some((o) => o.visit?.priority === 1) && <>, <span className="font-semibold text-rose-700">{list.filter((o) => o.visit?.priority === 1).length} urgent</span></>}</p>
+            <p className="mt-0.5 text-sm text-slate-500">{all.length ? `${all.length} waiting` : 'Nothing waiting'}{all.some((o) => o.visit?.priority === 1) && <>, <span className="font-semibold text-rose-700">{all.filter((o) => o.visit?.priority === 1).length} urgent</span></>}</p>
+            {all.length > 0 && (
+              <div className="relative mt-3">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input className="input !py-2 pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search patient, number or procedure" aria-label="Search the procedures queue" />
+              </div>
+            )}
           </div>
           {loading ? <div className="space-y-2 p-4">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
             : error ? <p className="p-4 text-sm text-rose-700">{error}</p>
-              : !list.length ? <p className="px-4 py-10 text-center text-sm text-slate-500">Dressings, injections and other procedures appear here when a doctor orders them.</p>
+              : !all.length ? <p className="px-4 py-10 text-center text-sm text-slate-500">Dressings, injections and other procedures appear here when a doctor orders them.</p>
+                : !list.length ? <p className="px-4 py-10 text-center text-sm text-slate-500">No procedures match your search.</p>
                 : (
                   <ul className="max-h-[calc(100vh-13rem)] divide-y divide-slate-100 overflow-y-auto">
                     {list.map((o) => {

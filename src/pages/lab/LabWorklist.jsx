@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, CheckCircle2, Clock, FlaskConical, Printer, TestTube } from 'lucide-react';
+import { ArrowLeft, Check, CheckCircle2, Clock, FlaskConical, Printer, Search, TestTube } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../api.js';
 import useFetch from '../../lib/useFetch';
@@ -22,10 +22,13 @@ export default function LabWorklist({ done = false }) {
   const { data, loading, error, reload } = useFetch(`/lab/worklist${done ? '?status=verified' : ''}`, { initial: [] });
   useLive(['queue', 'result'], useCallback(() => reload(), [reload]));
   const [filter, setFilter] = useState('all');
+  const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   // Urgent first, then whoever has waited longest (verified results: newest first)
   const tests = [...(data || [])].sort((a, b) => done ? 0 : ((a.visit?.priority === 1 ? 0 : 1) - (b.visit?.priority === 1 ? 0 : 1)) || (new Date(a.createdAt) - new Date(b.createdAt)));
-  const shown = tests.filter(FILTERS.find(([k]) => k === filter)[2]);
+  const q = query.trim().toLowerCase();
+  const matchesQuery = (o) => !q || `${o.name} ${fullName(o.patient)} ${o.patient?.patientNo || ''}`.toLowerCase().includes(q);
+  const shown = tests.filter(FILTERS.find(([k]) => k === filter)[2]).filter(matchesQuery);
   const selected = tests.find((o) => o._id === selectedId) || null;
 
   // After a test is verified it leaves the list; move on to the next one waiting
@@ -58,13 +61,18 @@ export default function LabWorklist({ done = false }) {
                 })}
               </div>
             )}
+            <div className="relative mt-3">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input className="input !py-2 pl-9" value={query} onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search patient, number or test" aria-label="Search the lab worklist" />
+            </div>
           </div>
           {loading ? (
             <div className="space-y-2 p-4">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
           ) : error ? (
             <p className="p-4 text-sm text-rose-700">{error}</p>
           ) : !shown.length ? (
-            <p className="px-4 py-10 text-center text-sm text-slate-500">{done ? 'No verified results yet.' : filter === 'all' ? 'Tests appear here as soon as a doctor orders them.' : 'Nothing at this step.'}</p>
+            <p className="px-4 py-10 text-center text-sm text-slate-500">{q ? 'No tests match your search.' : done ? 'No verified results yet.' : filter === 'all' ? 'Tests appear here as soon as a doctor orders them.' : 'Nothing at this step.'}</p>
           ) : (
             <ul className="max-h-[calc(100vh-15rem)] divide-y divide-slate-100 overflow-y-auto">
               {shown.map((o) => {

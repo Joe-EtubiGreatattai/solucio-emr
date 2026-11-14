@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { AlertTriangle, Clock, Pill } from 'lucide-react';
+import { AlertTriangle, Clock, Pill, Search } from 'lucide-react';
 import useFetch from '../../lib/useFetch';
 import { useLive } from '../../lib/live';
 import { fullName, minutes } from '../../lib/format';
@@ -12,8 +12,11 @@ export default function DispenseQueue() {
   const { data, loading, error, reload } = useFetch('/pharmacy/queue', { initial: [] });
   useLive(['queue', 'stock'], useCallback(() => reload(), [reload]));
   const [visitId, setVisitId] = useState(null);
+  const [query, setQuery] = useState('');
   const queue = data || [];
   const items = queue.reduce((n, q) => n + (q.orders || 0), 0);
+  const term = query.trim().toLowerCase();
+  const shown = queue.filter((q) => !term || `${fullName(q.patient)} ${q.patient?.patientNo || ''}`.toLowerCase().includes(term));
 
   return (
     <div className="grid gap-4 lg:grid-cols-[21rem_minmax(0,1fr)] lg:items-start">
@@ -22,13 +25,20 @@ export default function DispenseQueue() {
           <div className="border-b border-slate-100 px-4 py-4">
             <h1 className="text-xl font-semibold text-slate-900">Prescriptions</h1>
             <p className="mt-0.5 text-sm text-slate-500">{queue.length ? `${queue.length} patient${queue.length === 1 ? '' : 's'}, ${items} item${items === 1 ? '' : 's'} to give` : 'Nobody waiting'}</p>
+            {queue.length > 0 && (
+              <div className="relative mt-3">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input className="input !py-2 pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search patient or number" aria-label="Search prescriptions" />
+              </div>
+            )}
           </div>
           {loading ? <div className="space-y-2 p-4">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
             : error ? <p className="p-4 text-sm text-rose-700">{error}</p>
               : !queue.length ? <p className="px-4 py-10 text-center text-sm text-slate-500">Patients appear here when a doctor prescribes.</p>
+                : !shown.length ? <p className="px-4 py-10 text-center text-sm text-slate-500">No patients match your search.</p>
                 : (
                   <ul className="max-h-[calc(100vh-13rem)] divide-y divide-slate-100 overflow-y-auto">
-                    {queue.map((q) => {
+                    {shown.map((q) => {
                       const active = q.visit._id === visitId;
                       const w = waited(q.since);
                       return (

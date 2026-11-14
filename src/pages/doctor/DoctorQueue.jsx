@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Clock, Stethoscope } from 'lucide-react';
+import { AlertTriangle, Clock, Search, Stethoscope } from 'lucide-react';
 import { api } from '../../api.js';
 import useFetch from '../../lib/useFetch';
 import { useLive } from '../../lib/live';
@@ -36,9 +36,12 @@ export default function DoctorQueue() {
     if (e.status === 'waiting') api(`/queues/${e._id}/start`, { method: 'POST' }).catch(() => {});
     navigate(`/doctor/visit/${e.visit._id}`);
   };
+  const [query, setQuery] = useState('');
   const waiting = queue.filter((e) => e.status === 'waiting');
   const withYou = queue.filter((e) => e.status === 'in_progress');
   const unwell = queue.filter((e) => flags(e.vitals, ageInYears(e.patient?.dob)).some((f) => f.level === 'critical')).length;
+  const term = query.trim().toLowerCase();
+  const shown = queue.filter((e) => !term || `${fullName(e.patient)} ${e.patient?.patientNo || ''}`.toLowerCase().includes(term));
 
   return (
     <div>
@@ -58,6 +61,14 @@ export default function DoctorQueue() {
       </div>
 
       <div className="card overflow-hidden">
+        {queue.length > 0 && (
+          <div className="border-b border-slate-100 p-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input className="input !py-2 pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search patient or number" aria-label="Search the doctor queue" />
+            </div>
+          </div>
+        )}
         {loading ? (
           <div className="space-y-2 p-4">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
         ) : error ? (
@@ -68,9 +79,11 @@ export default function DoctorQueue() {
             <p className="font-semibold text-slate-900">Nobody waiting{clinic ? ' for this clinic' : ''}</p>
             <p className="text-sm text-slate-500">Patients appear here once the nurse has taken their vitals.</p>
           </div>
+        ) : !shown.length ? (
+          <p className="px-6 py-14 text-center text-sm text-slate-500">No patients match your search.</p>
         ) : (
           <ul className="divide-y divide-slate-100">
-            {queue.map((e) => {
+            {shown.map((e) => {
               const years = ageInYears(e.patient?.dob);
               const f = flags(e.vitals, years);
               const critical = f.some((x) => x.level === 'critical');

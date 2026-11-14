@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, HeartPulse, Send, Stethoscope } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, HeartPulse, Search, Send, Stethoscope } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../api.js';
 import useFetch from '../../lib/useFetch';
@@ -58,9 +58,12 @@ export default function Triage() {
 }
 
 function QueuePanel({ queue, loading, currentId, onOpen }) {
+  const [query, setQuery] = useState('');
   const waiting = queue.filter((e) => e.status === 'waiting');
   const urgent = waiting.filter((e) => e.priority === 1).length;
   const longest = waiting.reduce((m, e) => Math.max(m, e.waitingMinutes || 0), 0);
+  const q = query.trim().toLowerCase();
+  const shown = queue.filter((e) => !q || `${fullName(e.patient)} ${e.patient?.patientNo || ''} ${e.visit?.complaint || ''}`.toLowerCase().includes(q));
   return (
     <div className="card overflow-hidden">
       <div className="border-b border-slate-100 px-4 py-4">
@@ -68,14 +71,22 @@ function QueuePanel({ queue, loading, currentId, onOpen }) {
         <p className="mt-0.5 text-sm text-slate-500">
           {waiting.length ? <>{waiting.length} waiting{urgent > 0 && <>, <span className="font-semibold text-rose-700">{urgent} urgent</span></>} · longest wait {minutes(longest)}</> : queue.length ? 'Nobody else waiting' : 'Nobody waiting'}
         </p>
+        {queue.length > 0 && (
+          <div className="relative mt-3">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input className="input !py-2 pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search patient or number" aria-label="Search the triage queue" />
+          </div>
+        )}
       </div>
       {loading ? (
         <div className="space-y-2 p-4">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
       ) : !queue.length ? (
         <p className="px-4 py-10 text-center text-sm text-slate-500">New patients appear here as reception checks them in.</p>
+      ) : !shown.length ? (
+        <p className="px-4 py-10 text-center text-sm text-slate-500">No patients match your search.</p>
       ) : (
         <ul className="max-h-[calc(100vh-14rem)] divide-y divide-slate-100 overflow-y-auto">
-          {queue.map((e) => {
+          {shown.map((e) => {
             const active = e._id === currentId;
             const wait = e.waitingMinutes || 0;
             return (
