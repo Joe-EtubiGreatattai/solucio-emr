@@ -16,7 +16,7 @@ export function Result({ r, name }) {
     <div className="rounded-xl bg-slate-50 p-3 text-sm">
       <p className="mb-1 font-semibold">{name}</p>
       <ul className="grid gap-x-4 sm:grid-cols-2">
-        {r.values.map((x) => (
+        {r.values.filter((x) => String(x.value ?? '').trim()).map((x) => (
           <li key={x.name} className="flex justify-between gap-2"><span className="text-slate-500">{x.name}</span>
             <span className={`money ${flagColor[x.flag] || ''}`}>{x.value} {x.unit}{x.flag === 'low' ? ' ↓' : x.flag === 'high' ? ' ↑' : ''}</span></li>
         ))}

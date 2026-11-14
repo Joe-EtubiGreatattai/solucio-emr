@@ -1,28 +1,48 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Undo2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Undo2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../api.js';
 import useFetch from '../../lib/useFetch';
 import { useLive } from '../../lib/live';
-import { date, naira } from '../../lib/format';
+import { age, date, fullName, naira } from '../../lib/format';
 import { newRequestId } from '../../lib/id';
-import { Badge, Button, Card, ErrorNote, Field, Modal, Spinner } from '../../components/ui';
-import PatientBanner from '../../components/PatientBanner';
+import { Avatar, Badge, Button, ErrorNote, Field, Modal, Spinner } from '../../components/ui';
 
 export default function Dispense() {
   const { visitId } = useParams();
+  return (
+    <div>
+      <Link to="/pharmacy" className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Prescriptions</Link>
+      <DispensePanel visitId={visitId} />
+    </div>
+  );
+}
+
+/** One patient's prescriptions: dispense, part-dispense with a reason, or take returns. */
+export function DispensePanel({ visitId, onBack }) {
   const { data: visit } = useFetch(`/visits/${visitId}`);
   const { data: orders, loading, reload } = useFetch(`/pharmacy/orders/${visitId}`, { initial: [] });
   useLive(['stock'], useCallback(() => reload(), [reload]));
   const [ret, setRet] = useState(null);
-  if (loading || !visit) return <Spinner />;
+  if (loading || !visit) return <div className="card p-6"><Spinner /></div>;
+  const p = visit.patient;
+  const open = orders.filter((o) => ['requested', 'partly_dispensed'].includes(o.status));
   return (
-    <div>
-      <Link to="/pharmacy" className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Prescriptions</Link>
-      <PatientBanner patient={visit.patient} visit={visit} />
-      <div className="space-y-3">
+    <div className="card overflow-hidden">
+      <header className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4 sm:p-5">
+        {onBack && <button type="button" onClick={onBack} aria-label="Back to prescriptions" className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 lg:hidden"><ArrowLeft className="h-4 w-4" /></button>}
+        <Avatar name={fullName(p)} />
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-xl font-semibold text-slate-900">{fullName(p)}</h2>
+          <p className="text-sm text-slate-500">{p?.sex === 'male' ? 'Male' : 'Female'}{p?.dob ? `, ${age(p.dob)}` : ''} · {p?.patientNo} · {visit.payer?.type === 'hmo' ? visit.payer.hmo?.name : 'Cash'}</p>
+        </div>
+        <span className="text-sm text-slate-500">{open.length ? `${open.length} to give` : 'All given'}</span>
+      </header>
+      <div className="space-y-3 p-4 sm:p-5">
+        {p?.allergies?.length > 0 && <p className="flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800"><AlertTriangle className="h-4 w-4" /> Allergic to {p.allergies.join(', ')}. Check every drug before handing it over.</p>}
         {orders.map((o) => <OrderRow key={o._id} order={o} onDone={reload} onReturn={setRet} />)}
+        {!orders.length && <p className="py-6 text-center text-sm text-slate-500">No prescriptions on this visit.</p>}
       </div>
       <ReturnModal dispense={ret} onClose={() => setRet(null)} onDone={reload} />
     </div>
@@ -52,7 +72,7 @@ function OrderRow({ order, onDone, onReturn }) {
   }
 
   return (
-    <Card bodyClass="p-4">
+    <div className={`rounded-2xl border p-4 ${open ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50/60"}`}>
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="font-semibold">{order.priceItem?.name}</p>
@@ -76,7 +96,7 @@ function OrderRow({ order, onDone, onReturn }) {
         </p>
       ))}
       <div className="mt-2"><ErrorNote>{error}</ErrorNote></div>
-    </Card>
+    </div>
   );
 }
 

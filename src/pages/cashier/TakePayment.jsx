@@ -16,6 +16,16 @@ const METHODS = [['cash', 'Cash'], ['pos', 'POS'], ['transfer', 'Transfer']];
 
 export default function TakePayment() {
   const { visitId } = useParams();
+  return (
+    <div>
+      <Link to="/cashier" className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Awaiting payment</Link>
+      <PaymentPanel visitId={visitId} />
+    </div>
+  );
+}
+
+/** One visit's bill and the payment form. */
+export function PaymentPanel({ visitId, onBack }) {
   const { data, loading, reload } = useFetch(`/cashier/bills/${visitId}`);
   useLive(['bill'], useCallback((e) => { if (!e.visit || e.visit === visitId) reload(); }, [reload, visitId]));
   const [rows, setRows] = useState([{ method: 'cash', amount: '' }]);
@@ -26,7 +36,7 @@ export default function TakePayment() {
   const [leave, setLeave] = useState(false);
   const [reason, setReason] = useState('');
 
-  if (loading || !data) return <Spinner />;
+  if (loading || !data) return <div className="card p-6"><Spinner /></div>;
   const { visit, patient, summary, pending = [] } = data;
   const total = rows.reduce((s, r) => s + toKobo(r.amount), 0);
   const left = summary.balanceKobo - total;
@@ -52,7 +62,7 @@ export default function TakePayment() {
 
   return (
     <div>
-      <Link to="/cashier" className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft className="h-4 w-4" /> Awaiting payment</Link>
+      {onBack && <button type="button" onClick={onBack} className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 lg:hidden"><ArrowLeft className="h-4 w-4" /> Awaiting payment</button>}
       <PatientBanner patient={patient} visit={visit} />
       {pending.length > 0 && visit.status === 'awaiting_payment' && (
         <p className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -60,12 +70,12 @@ export default function TakePayment() {
           Send the patient there first. Those charges are added when they’re done, so the bill may grow.
         </p>
       )}
-      <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+      <div className="grid gap-4 2xl:grid-cols-[1.4fr_1fr]">
         <Card title="Bill" subtitle={`${visit.clinic?.name || ''} · ${visit.visitNo}`} bodyClass="p-0"><BillView summary={summary} /></Card>
         <div className="space-y-4">
           {payable ? (
             <Card title="Take payment">
-              <p className="mb-4 text-sm text-slate-500">Balance due <b className="money text-lg text-slate-900">{naira(summary.balanceKobo)}</b></p>
+              <div className="mb-4 rounded-2xl bg-slate-50 px-4 py-3"><p className="text-sm text-slate-500">Balance due</p><p className="money text-3xl font-semibold tracking-tight text-slate-900">{naira(summary.balanceKobo)}</p>{summary.hmoKobo > 0 && <p className="text-xs text-slate-500">The HMO covers {naira(summary.hmoKobo)}</p>}</div>
               <div className="space-y-2">
                 {rows.map((r, i) => (
                   <div key={i} className="flex items-end gap-2">

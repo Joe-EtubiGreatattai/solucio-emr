@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CalendarDays, Mail, MessageCircle, Phone, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../api.js';
-import { Badge, Button, Card, ErrorNote, Field, Modal, PageHeader, Spinner } from '../../components/ui';
+import { Badge, Button, Card, ErrorNote, Field, PageHeader, Spinner } from '../../components/ui';
 
 const TABS = [['new', 'New'], ['contacted', 'Contacted'], ['confirmed', 'Confirmed'], ['completed', 'Completed'], ['cancelled', 'Cancelled'], ['', 'All']];
 const STATUS = {
@@ -74,6 +74,7 @@ export default function OnlineAppointments() {
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, phone, reference" className="input !py-2 pl-9" aria-label="Search appointments" />
         </label>
       </div>
+      <div className={selected ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] xl:items-start' : ''}>
       <Card bodyClass="p-0">
         {loading ? <Spinner /> : !data.items.length ? <div className="p-12 text-center text-sm text-slate-500">{query ? 'No requests match your search.' : tab === 'new' ? 'No new requests. New website bookings appear here automatically.' : 'No requests in this list.'}</div> : (
           <div className="divide-y divide-slate-100">
@@ -91,10 +92,13 @@ export default function OnlineAppointments() {
           </div>
         )}
       </Card>
-      {!selected && <div className="mt-3"><ErrorNote>{error}</ErrorNote></div>}
-
-      <Modal open={Boolean(selected)} onClose={() => { setSelected(null); setMode(''); }} title={selected?.fullName || 'Appointment request'} size="lg" guardChanges={false}>
-        {selected && <div className="space-y-5">
+      {selected && (
+        <section className="card p-4 sm:p-5 xl:sticky xl:top-4">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div><h2 className="text-xl font-semibold text-slate-900">{selected.fullName}</h2><p className="text-sm text-slate-500">Requested {timeLabel(selected.createdAt)}</p></div>
+            <Button size="sm" variant="ghost" onClick={() => { setSelected(null); setMode(''); }}>Close</Button>
+          </div>
+          <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-2"><Badge color={STATUS[selected.status]?.[1] || 'slate'}>{STATUS[selected.status]?.[0] || selected.status}</Badge><span className="text-xs text-slate-500">{selected.ref}</span></div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Card title="Requested visit" bodyClass="space-y-2 p-4 text-sm">
@@ -133,8 +137,11 @@ export default function OnlineAppointments() {
           {mode === 'cancel' && <div className="space-y-3 rounded-2xl bg-slate-50 p-4"><h3 className="font-semibold">Cancel request</h3><Field label="Reason"><input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Why is it being cancelled?" /></Field><div className="flex gap-2"><Button variant="danger" loading={busy} disabled={!text.trim()} onClick={() => act({ action: 'cancel', reason: text })}>Cancel and email patient</Button><Button variant="secondary" onClick={() => setMode('')}>Back</Button></div></div>}
           {mode === 'note' && <div className="space-y-3 rounded-2xl bg-slate-50 p-4"><h3 className="font-semibold">Add a note</h3><Field label="Note"><textarea className="input min-h-24" value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. No answer, will call again" /></Field><div className="flex gap-2"><Button loading={busy} disabled={!text.trim()} onClick={() => act({ action: 'note', note: text })}>Save note</Button><Button variant="secondary" onClick={() => setMode('')}>Back</Button></div></div>}
           <ErrorNote>{error}</ErrorNote>
-        </div>}
-      </Modal>
+          </div>
+        </section>
+      )}
+      </div>
+      {!selected && <div className="mt-3"><ErrorNote>{error}</ErrorNote></div>}
     </div>
   );
 }

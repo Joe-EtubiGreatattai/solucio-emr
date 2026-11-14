@@ -35,7 +35,7 @@ export default function Stock() {
               {list.map((d) => (
                 <tr key={d._id}>
                   <td data-label=""><span className="font-semibold">{d.name}</span><span className="block text-xs text-slate-500">{d.code} · reorder at {d.drug?.reorderLevel || 0}</span></td>
-                  <td data-label="In stock" className="money text-right"><span className={d.onHand <= (d.drug?.reorderLevel || 0) ? 'font-bold text-rose-700' : 'font-semibold'}>{d.onHand}</span></td>
+                  <td data-label="In stock" className="text-right"><StockLevel onHand={d.onHand} reorder={d.drug?.reorderLevel || 0} /></td>
                   <td data-label="Batches">
                     {d.batches.map((b) => (
                       <button key={b._id} type="button" onClick={() => setAdjust({ ...b, drug: d.name })} className="mb-1 mr-1 inline-flex rounded-lg bg-slate-100 px-2 py-0.5 text-xs hover:bg-brand-50" title="Adjust this batch">
@@ -146,5 +146,16 @@ function CountModal({ open, drugs, onClose, onDone }) {
       </table>
       <ErrorNote>{error}</ErrorNote>
     </Modal>
+  );
+}
+
+function StockLevel({ onHand, reorder }) {
+  const state = onHand <= 0 ? ['Out of stock', 'bg-rose-100 text-rose-800', 'bg-rose-500'] : onHand <= reorder ? ['Low', 'bg-amber-100 text-amber-800', 'bg-amber-500'] : ['OK', 'bg-emerald-50 text-emerald-700', 'bg-emerald-500'];
+  const pct = Math.min(100, reorder ? (onHand / (reorder * 3)) * 100 : onHand ? 100 : 0);
+  return (
+    <span className="inline-flex flex-col items-end gap-1">
+      <span className="flex items-center gap-2"><span className="money font-semibold text-slate-900">{onHand}</span><span className={`rounded-md px-1.5 py-0.5 text-xs font-semibold ${state[1]}`}>{state[0]}</span></span>
+      <span className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-100" aria-hidden="true"><span className={`block h-full ${state[2]}`} style={{ width: `${pct}%` }} /></span>
+    </span>
   );
 }

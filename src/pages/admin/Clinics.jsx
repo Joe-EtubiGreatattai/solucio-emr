@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { api } from '../../api.js';
 import useFetch from '../../lib/useFetch';
 import { naira } from '../../lib/format';
-import { Badge, Button, Card, ErrorNote, Field, Modal, PageHeader, Spinner } from '../../components/ui';
+import { Badge, Button, Card, Empty, ErrorNote, Field, Modal, PageHeader, Spinner } from '../../components/ui';
 
 export default function Clinics() {
   const { data, loading, reload } = useFetch('/clinics?all=1', { initial: [] });
@@ -22,13 +22,13 @@ export default function Clinics() {
     <div>
       <PageHeader title="Clinics" subtitle="Where reception can send patients. Each clinic charges its own consultation fee." actions={<Button icon={Plus} onClick={() => open({})}>Add clinic</Button>} />
       <Card bodyClass="p-0">
-        {loading ? <Spinner /> : (
+        {loading ? <Spinner /> : !data.length ? <Empty title="No clinics yet" action={<Button icon={Plus} onClick={() => open({})}>Add clinic</Button>}>Reception can only check patients in to a clinic.</Empty> : (
           <table className="table">
             <thead><tr><th>Clinic</th><th>Department</th><th className="text-right">Consultation</th></tr></thead>
             <tbody>{data.map((c) => (
               <tr key={c._id} className="cursor-pointer" onClick={() => open(c)}>
                 <td data-label="" className="font-medium">{c.name}{!c.active && <Badge className="ml-2">Closed</Badge>}</td>
-                <td data-label="Department">{c.department}</td>
+                <td data-label="Department">{c.department || <span className="text-slate-400">—</span>}</td>
                 <td data-label="Consultation" className="money text-right">{c.consultationItem ? naira(c.consultationItem.cashPriceKobo) : '—'}</td>
               </tr>
             ))}</tbody>

@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { api } from '../../api.js';
 import useFetch from '../../lib/useFetch';
 import { naira, toKobo } from '../../lib/format';
-import { Badge, Button, Card, ErrorNote, Field, Modal, MoneyInput, PageHeader, Spinner, Tabs } from '../../components/ui';
+import { Badge, Button, Card, Empty, ErrorNote, Field, Modal, MoneyInput, PageHeader, Spinner, Tabs } from '../../components/ui';
 
 const CATS = [['', 'All'], ['registration', 'Registration'], ['consultation', 'Consultation'], ['lab', 'Lab'], ['drug', 'Drugs'], ['procedure', 'Procedures'], ['other', 'Other']];
 
@@ -22,9 +22,13 @@ export default function PriceList() {
       <Card bodyClass="p-0">
         <div className="flex flex-wrap items-center gap-3 px-4 pt-2">
           <Tabs value={cat} onChange={setCat} tabs={CATS.map(([value, label]) => ({ value, label }))} />
-          <input className="input ml-auto !w-60" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search price list" />
+          <input className="input w-full sm:ml-auto sm:!w-60" placeholder="Search name or code" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search price list" />
         </div>
-        {loading ? <Spinner /> : (
+        {loading ? <Spinner /> : !list.length ? (
+          <Empty title={q || cat ? 'Nothing matches' : 'The price list is empty'}>{q || cat ? 'Try another word or type.' : 'Add the first charge with “Add item”.'}</Empty>
+        ) : (
+          <>
+          <p className="px-4 pt-3 text-xs text-slate-500">{list.length} item{list.length === 1 ? '' : 's'}</p>
           <table className="table">
             <thead><tr><th>Item</th><th>Code</th><th className="text-right">Cash price</th><th>HMO prices</th></tr></thead>
             <tbody>
@@ -38,6 +42,7 @@ export default function PriceList() {
               ))}
             </tbody>
           </table>
+          </>
         )}
       </Card>
       <ItemForm item={edit} hmos={hmos} onClose={() => setEdit(null)} onSaved={reload} />
