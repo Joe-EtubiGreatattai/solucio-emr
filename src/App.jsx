@@ -5,9 +5,13 @@ import Logo from './components/Logo.jsx';
 import Login from './pages/Login.jsx';
 import { ROLE_HOME } from './lib/roles.js';
 import { routes } from './routes.jsx';
+import HomeMonitoring from './pages/HomeMonitoring.jsx';
 
 export default function App() {
   const { user, loading, role } = useAuth();
+  const publicMonitoringToken = window.location.pathname.match(/^\/home-monitoring\/([a-f\d]{64})\/?$/i)?.[1];
+
+  if (publicMonitoringToken) return <HomeMonitoring token={publicMonitoringToken} />;
 
   if (loading) {
     return (

@@ -10,6 +10,7 @@ import PatientBanner from '../../components/PatientBanner';
 import BillView from '../../components/BillView';
 import OrderForm from './OrderForm';
 import ChartTimeline, { Result, Vitals } from './ChartTimeline';
+import HomeMonitoringPanel from './HomeMonitoringPanel';
 
 const ORDER_STATUS = {
   requested: ['Waiting', 'amber'], collected: ['Sample taken', 'blue'], resulted: ['Result in, not checked', 'blue'], verified: ['Result ready', 'green'],
@@ -30,7 +31,7 @@ export default function Consultation() {
   const patientId = visit?.patient?._id;
   const loadChart = useCallback(() => { if (patientId) api(`/patients/${patientId}/chart`).then(setChart).catch(() => {}); }, [patientId]);
   useEffect(loadChart, [loadChart]);
-  useLive(['bill', 'result', 'queue'], useCallback(() => { reloadOrders(); reloadBill(); loadChart(); }, [reloadOrders, reloadBill, loadChart]));
+  useLive(['bill', 'result', 'queue', 'home-monitoring'], useCallback(() => { reloadOrders(); reloadBill(); loadChart(); }, [reloadOrders, reloadBill, loadChart]));
 
   if (!visit || !chart) return <Spinner />;
   const current = chart.visits.find((v) => v._id === visitId);
@@ -61,6 +62,7 @@ export default function Consultation() {
             { value: 'notes', label: 'Notes' },
             { value: 'orders', label: 'Orders', count: orders.filter((o) => o.kind !== 'referral').length },
             { value: 'results', label: 'Results', count: current?.results.length || 0 },
+            { value: 'home', label: 'At home', count: chart.homeMonitoring?.entries?.filter((entry) => !entry.reviewedAt).length || 0 },
             { value: 'bill', label: 'Bill' },
           ]} /></div>
           <div className="p-4">
@@ -98,6 +100,7 @@ export default function Consultation() {
                 {!current?.results.length && <p className="py-6 text-center text-sm text-slate-500">No results yet. They appear here when the lab verifies them.</p>}
               </div>
             )}
+            {tab === 'home' && <HomeMonitoringPanel patientId={patientId} homeMonitoring={chart.homeMonitoring} onRefresh={loadChart} />}
             {tab === 'bill' && <div className="-m-4"><BillView summary={bill} /></div>}
           </div>
         </Card>
