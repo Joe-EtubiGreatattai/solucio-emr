@@ -12,13 +12,18 @@ export function Vitals({ v }) {
 }
 
 export function Result({ r, name }) {
+  const values = r.values.filter((x) => String(x.value ?? '').trim());
   return (
-    <div className="rounded-xl bg-slate-50 p-3 text-sm">
-      <p className="mb-1 font-semibold">{name}</p>
-      <ul className="grid gap-x-4 sm:grid-cols-2">
-        {r.values.filter((x) => String(x.value ?? '').trim()).map((x) => (
-          <li key={x.name} className="flex justify-between gap-2"><span className="text-slate-500">{x.name}</span>
-            <span className={`money ${flagColor[x.flag] || ''}`}>{x.value} {x.unit}{x.flag === 'low' ? ' ↓' : x.flag === 'high' ? ' ↑' : ''}</span></li>
+    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm">
+      <p className="mb-2 font-semibold leading-snug text-slate-800">{name}</p>
+      <ul className="divide-y divide-slate-200/70">
+        {values.map((x) => (
+          <li key={x.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 py-1.5 first:pt-0 last:pb-0">
+            <span className="min-w-0 text-slate-500">{x.name}</span>
+            <span className={`money max-w-[62%] text-right font-medium leading-snug text-slate-700 ${flagColor[x.flag] || ''}`}>
+              {x.value}{x.unit ? ` ${x.unit}` : ''}{x.flag === 'low' ? ' ↓' : x.flag === 'high' ? ' ↑' : ''}
+            </span>
+          </li>
         ))}
       </ul>
       {r.comment && <p className="mt-1 text-slate-600">{r.comment}</p>}
