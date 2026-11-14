@@ -1,6 +1,6 @@
 import {
   Banknote, BarChart3, BedDouble, Building2, CalendarDays, ClipboardList, FlaskConical, HeartPulse, History, Inbox,
-  ArrowLeftRight, Package, Pill, ReceiptText, ScrollText, ShieldCheck, Stethoscope, Syringe, Truck, Users, Wallet, Warehouse,
+  ArrowLeftRight, Package, Pill, ReceiptText, ScrollText, ShieldCheck, Stethoscope, Syringe, Users, Wallet, Warehouse,
 } from 'lucide-react';
 
 export const ROLE_LABEL = {
