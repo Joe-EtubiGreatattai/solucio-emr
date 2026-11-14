@@ -26,13 +26,16 @@ function NavItem({ to, label, icon: Icon, end }) {
 function Sidebar({ onLogout, orgName, role }) {
   return (
     <div className="flex h-full flex-col rounded-3xl bg-slate-100/80 px-3 py-6">
-      <Link to={ROLE_HOME[role] || '/'} className="mb-8 flex items-center gap-2.5 px-4">
+      <Link to={ROLE_HOME[role] || '/'} className="mb-1.5 flex items-center gap-2.5 px-4">
         <Logo className="h-10 w-10" />
         <span className="leading-tight">
           <span className="block text-lg font-semibold tracking-tight">Solucio EMR</span>
           <span className="block text-xs text-slate-500">{orgName || 'Solucio Hospital'}</span>
         </span>
       </Link>
+      <p className="mb-8 flex items-center gap-1.5 px-4 text-xs text-slate-400">
+        Powered by <img src={`${import.meta.env.BASE_URL}icon.png`} alt="" className="h-3.5 w-3.5 rounded" /> <span className="font-semibold text-slate-500">HealOS</span>
+      </p>
       <nav aria-label="Main" className="flex-1 space-y-0.5">
         {(ROLE_NAV[role] || []).map((n) => <NavItem key={n.to} {...n} />)}
       </nav>
@@ -40,9 +43,6 @@ function Sidebar({ onLogout, orgName, role }) {
         <button type="button" onClick={onLogout} className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-[15px] text-slate-500 transition hover:bg-white/70 hover:text-slate-800">
           <LogOut className="h-5 w-5" /> Sign out
         </button>
-        <p className="mt-2 flex items-center justify-center gap-1.5 px-4 text-xs text-slate-400">
-          Powered by <img src={`${import.meta.env.BASE_URL}icon.png`} alt="" className="h-3.5 w-3.5 rounded" /> <span className="font-semibold text-slate-500">HealOS</span>
-        </p>
       </div>
     </div>
   );
