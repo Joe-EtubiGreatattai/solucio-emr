@@ -1,5 +1,5 @@
 import {
-  Banknote, BarChart3, Building2, CalendarDays, ClipboardList, FlaskConical, HeartPulse, History, Inbox,
+  Banknote, BarChart3, BedDouble, Building2, CalendarDays, ClipboardList, FlaskConical, HeartPulse, History, Inbox,
   Package, Pill, ReceiptText, ScrollText, ShieldCheck, Stethoscope, Syringe, Users, Wallet,
 } from 'lucide-react';
 
@@ -17,11 +17,13 @@ export const ROLE_NAV = {
   ],
   nurse: [
     { to: '/triage', label: 'Triage', icon: HeartPulse },
+    { to: '/wards', label: 'Wards & beds', icon: BedDouble },
     { to: '/procedures', label: 'Procedures', icon: Syringe },
   ],
   doctor: [
     { to: '/doctor', label: 'My queue', icon: Stethoscope },
     { to: '/patients', label: 'Patients', icon: Users },
+    { to: '/wards', label: 'Wards & beds', icon: BedDouble },
     { to: '/procedures', label: 'Procedures', icon: Syringe },
   ],
   lab: [
@@ -45,6 +47,7 @@ export const ROLE_NAV = {
   admin: [
     { to: '/admin', label: 'Price list', icon: Banknote, end: true },
     { to: '/patients', label: 'Patients', icon: Users },
+    { to: '/wards', label: 'Wards & beds', icon: BedDouble },
     { to: '/admin/hmos', label: 'HMOs', icon: ShieldCheck },
     { to: '/admin/clinics', label: 'Clinics', icon: Building2 },
     { to: '/admin/staff', label: 'Staff', icon: Users },

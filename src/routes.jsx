@@ -7,6 +7,7 @@ import DoctorQueue from './pages/doctor/DoctorQueue.jsx';
 import Consultation from './pages/doctor/Consultation.jsx';
 import DoctorPatients from './pages/doctor/DoctorPatients.jsx';
 import DoctorPatientRecord from './pages/doctor/DoctorPatientRecord.jsx';
+import WardManagement from './pages/wards/WardManagement.jsx';
 import LabWorklist from './pages/lab/LabWorklist.jsx';
 import Procedures from './pages/procedures/Procedures.jsx';
 import DispenseQueue from './pages/pharmacy/DispenseQueue.jsx';
@@ -35,6 +36,7 @@ export const routes = [
   { path: '/doctor', element: <DoctorQueue /> },
   { path: '/patients', element: <DoctorPatients /> },
   { path: '/patients/:patientId', element: <DoctorPatientRecord /> },
+  { path: '/wards', element: <WardManagement /> },
   { path: '/doctor/patients', element: <DoctorPatients /> },
   { path: '/doctor/patients/:patientId', element: <DoctorPatientRecord /> },
   { path: '/doctor/visit/:visitId', element: <Consultation /> },
