@@ -6,7 +6,9 @@ import { getToken } from '../api.js';
 let socket = null;
 function connect() {
   if (socket || !getToken()) return socket;
-  socket = io(import.meta.env.VITE_SOCKET_URL || '/', { path: import.meta.env.VITE_SOCKET_PATH || '/socket.io', auth: { token: getToken() }, transports: ['websocket', 'polling'] });
+  const socketOrigin = import.meta.env.VITE_SOCKET_URL || (import.meta.env.PROD ? 'https://solucio-website.techtree.lifestyle' : '/');
+  const socketPath = import.meta.env.VITE_SOCKET_PATH || (import.meta.env.PROD ? '/emr-api/socket.io' : '/socket.io');
+  socket = io(socketOrigin, { path: socketPath, auth: { token: getToken() }, transports: ['websocket', 'polling'] });
   return socket;
 }
 export function disconnectLive() {

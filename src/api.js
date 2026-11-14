@@ -1,6 +1,7 @@
 const TOKEN_KEY = 'emr_token';
-// Production builds call the API on its own domain (frontend/.env.production); dev uses Vite's /api proxy
-const BASE = `${(import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')}/api`;
+// Production builds call the EMR API directly; dev uses Vite's /api proxy.
+const API_ORIGIN = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://solucio-website.techtree.lifestyle/emr-api' : '');
+const BASE = `${API_ORIGIN.replace(/\/+$/, '')}/api`;
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
 export const setToken = (t) => (t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY));
