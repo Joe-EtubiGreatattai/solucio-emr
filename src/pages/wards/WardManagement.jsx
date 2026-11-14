@@ -1,219 +1,482 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Activity, BedDouble, Building2, Check, Clock3, Plus, ShieldAlert, UserRound, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, ArrowLeft, ArrowRightLeft, BedDouble, Building2, LogOut, Plus, Search, UserPlus, Wrench, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../api.js';
 import useFetch from '../../lib/useFetch.js';
 import { useLive } from '../../lib/live.js';
 import { age, dateTime, fullName } from '../../lib/format.js';
+import { bedNumbers, daysIn } from '../../lib/wards.js';
 import { useAuth } from '../../auth.jsx';
 import PatientPicker from '../../components/PatientPicker.jsx';
-import { Badge, Button, Card, Confirm, ErrorNote, Field, Modal, PageHeader, Spinner } from '../../components/ui.jsx';
+import { Badge, Button, ErrorNote, Field, Modal, Skeleton } from '../../components/ui.jsx';
 
-const BED_STYLE = {
-  available: 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-300',
-  occupied: 'border-amber-200 bg-amber-50 text-amber-900',
-  maintenance: 'border-slate-200 bg-slate-100 text-slate-500 hover:border-slate-300',
-};
-const BED_LABEL = { available: 'Available', occupied: 'Occupied', maintenance: 'Maintenance' };
+const LONG_STAY = 8; // days; flagged so long stays get reviewed
 
 export default function WardManagement() {
   const { can } = useAuth();
   const isAdmin = can('admin');
-  const canAdmit = can('doctor', 'nurse');
-  const { data: wards, loading: wardsLoading, error: wardsError, reload: reloadWards } = useFetch('/wards', { initial: [] });
-  const { data: admissions, loading: admissionsLoading, error: admissionsError, reload: reloadAdmissions } = useFetch('/admissions', { initial: [] });
+  const canCare = can('doctor', 'nurse');
+  const { data: wards, loading, error: wardsError, reload: reloadWards } = useFetch('/wards', { initial: [] });
+  const { data: admissions, error: admError, reload: reloadAdmissions } = useFetch('/admissions', { initial: [] });
   const refresh = useCallback(() => { reloadWards(); reloadAdmissions(); }, [reloadWards, reloadAdmissions]);
   useLive(['ward'], refresh);
 
+  const [wardId, setWardId] = useState('all');
+  const [selected, setSelected] = useState(null); // { kind: 'bed', id } | { kind: 'admit' }
+  const [q, setQ] = useState('');
   const [wardModal, setWardModal] = useState(false);
-  const [bedWard, setBedWard] = useState(null);
-  const [admitModal, setAdmitModal] = useState(false);
-  const [transferAdmission, setTransferAdmission] = useState(null);
-  const [dischargeAdmission, setDischargeAdmission] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [wardForm, setWardForm] = useState({ name: '', code: '', description: '' });
-  const [bedForm, setBedForm] = useState({ bedNo: '', type: 'Standard' });
-  const [patient, setPatient] = useState(null);
-  const [admissionForm, setAdmissionForm] = useState({ bedId: '', reason: '', diagnosis: '' });
-  const [transferBedId, setTransferBedId] = useState('');
-  const [confirmBed, setConfirmBed] = useState(null);
+  const [bedsFor, setBedsFor] = useState(null);
 
-  const allBeds = useMemo(() => wards.flatMap((ward) => (ward.beds || []).map((bed) => ({ ...bed, wardName: ward.name, wardCode: ward.code, wardActive: ward.active }))), [wards]);
-  const availableBeds = allBeds.filter((bed) => bed.status === 'available' && bed.wardActive);
-  const activeByBed = useMemo(() => new Map(admissions.map((admission) => [String(admission.bed?._id || admission.bed), admission])), [admissions]);
-  const counts = allBeds.reduce((totals, bed) => { totals[bed.status] = (totals[bed.status] || 0) + 1; return totals; }, {});
+  const byBed = useMemo(() => new Map(admissions.map((a) => [String(a.bed?._id || a.bed), a])), [admissions]);
+  const beds = useMemo(() => wards.flatMap((w) => (w.beds || []).map((b) => ({ ...b, ward: w, admission: byBed.get(String(b._id)) }))), [wards, byBed]);
+  const freeBeds = beds.filter((b) => b.status === 'available' && b.ward.active);
+  const totals = { all: beds.length, used: beds.filter((b) => b.status === 'occupied').length, out: beds.filter((b) => b.status === 'maintenance').length };
+  const shownWards = wardId === 'all' ? wards : wards.filter((w) => w._id === wardId);
+  const term = q.trim().toLowerCase();
+  const matches = (b) => !term || (b.admission && `${fullName(b.admission.patient)} ${b.admission.patient?.patientNo}`.toLowerCase().includes(term)) || b.bedNo.toLowerCase().includes(term);
+  const selectedBed = selected?.kind === 'bed' ? beds.find((b) => b._id === selected.id) : null;
 
-  async function createWard(event) {
-    event.preventDefault(); setError(''); setBusy(true);
-    try {
-      await api('/wards', { method: 'POST', body: wardForm });
-      toast.success('Ward added'); setWardModal(false); setWardForm({ name: '', code: '', description: '' }); refresh();
-    } catch (e) { setError(e.message); } finally { setBusy(false); }
-  }
+  // A searched patient's ward opens by itself
+  useEffect(() => {
+    if (!term) return;
+    const hit = beds.find((b) => b.admission && matches(b));
+    if (hit && wardId !== 'all' && hit.ward._id !== wardId) setWardId('all');
+  }, [term]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function createBed(event) {
-    event.preventDefault(); setError(''); setBusy(true);
-    try {
-      await api(`/wards/${bedWard._id}/beds`, { method: 'POST', body: bedForm });
-      toast.success('Bed added'); setBedWard(null); setBedForm({ bedNo: '', type: 'Standard' }); refresh();
-    } catch (e) { setError(e.message); } finally { setBusy(false); }
-  }
+  const close = () => setSelected(null);
+  const done = () => { close(); refresh(); };
 
-  async function changeBedStatus() {
-    if (!confirmBed) return;
-    try {
-      await api(`/beds/${confirmBed._id}`, { method: 'PATCH', body: { status: confirmBed.status === 'available' ? 'maintenance' : 'available' } });
-      toast.success(confirmBed.status === 'available' ? 'Bed marked for maintenance' : 'Bed available again');
-      setConfirmBed(null); refresh();
-    } catch (e) { toast.error(e.message); }
-  }
-
-  async function createAdmission(event) {
-    event.preventDefault(); setError(''); setBusy(true);
-    try {
-      await api('/admissions', { method: 'POST', body: { patientId: patient._id, ...admissionForm } });
-      toast.success('Patient admitted'); setAdmitModal(false); setPatient(null); setAdmissionForm({ bedId: '', reason: '', diagnosis: '' }); refresh();
-    } catch (e) { setError(e.message); } finally { setBusy(false); }
-  }
-
-  async function transfer() {
-    if (!transferAdmission || !transferBedId) return;
-    setBusy(true);
-    try {
-      await api(`/admissions/${transferAdmission._id}/transfer`, { method: 'POST', body: { bedId: transferBedId } });
-      toast.success('Patient transferred'); setTransferAdmission(null); setTransferBedId(''); refresh();
-    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
-  }
-
-  async function discharge() {
-    if (!dischargeAdmission) return;
-    setBusy(true);
-    try {
-      await api(`/admissions/${dischargeAdmission._id}/discharge`, { method: 'POST', body: {} });
-      toast.success('Patient discharged; bed is available'); setDischargeAdmission(null); refresh();
-    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
-  }
-
-  async function toggleWard(ward) {
-    try {
-      await api(`/wards/${ward._id}`, { method: 'PATCH', body: { active: !ward.active } });
-      toast.success(ward.active ? 'Ward closed' : 'Ward reopened'); refresh();
-    } catch (e) { toast.error(e.message); }
-  }
-
-  const busyLoading = wardsLoading || admissionsLoading;
   return (
     <div>
-      <PageHeader title="Wards & beds" subtitle="Track bed availability and manage inpatient admissions."
-        actions={<>{canAdmit && <Button icon={UserRound} onClick={() => { setError(''); setAdmitModal(true); }}>Admit patient</Button>}{isAdmin && <Button variant="secondary" icon={Plus} onClick={() => { setError(''); setWardModal(true); }}>Add ward</Button>}</>} />
-
-      {busyLoading && !wards.length && <Spinner />}
-      {(wardsError || admissionsError) && <div className="mb-4"><ErrorNote>{wardsError || admissionsError}</ErrorNote></div>}
-
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <Stat icon={BedDouble} label="Total beds" value={allBeds.length} tone="slate" />
-        <Stat icon={Check} label="Available" value={counts.available || 0} tone="green" />
-        <Stat icon={Activity} label="Occupied" value={counts.occupied || 0} tone="amber" />
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Wards & beds</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {totals.all ? <>{totals.used} of {totals.all} beds in use · {freeBeds.length} free{totals.out > 0 && ` · ${totals.out} out of service`}</> : 'No beds set up yet'}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {canCare && <Button icon={UserPlus} disabled={!freeBeds.length} onClick={() => setSelected({ kind: 'admit' })}>Admit a patient</Button>}
+          {isAdmin && <Button variant="secondary" icon={Plus} onClick={() => setWardModal(true)}>Add ward</Button>}
+        </div>
       </div>
 
-      <section className="mb-6">
-        <div className="mb-3 flex items-end justify-between gap-3">
-          <div><h2 className="text-lg font-bold tracking-tight text-slate-900">Bed board</h2><p className="text-sm text-slate-500">Current state across each ward.</p></div>
-          <div className="hidden flex-wrap gap-2 sm:flex"><Badge color="green">Available</Badge><Badge color="amber">Occupied</Badge><Badge>Maintenance</Badge></div>
+      {(wardsError || admError) && <div className="mb-4"><ErrorNote>{wardsError || admError}</ErrorNote></div>}
+
+      {loading && !wards.length ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[1, 2, 3, 4, 5, 6, 7, 8].map((i) => <Skeleton key={i} className="h-28" />)}</div>
+      ) : !wards.length ? (
+        <div className="card flex flex-col items-center gap-2 px-6 py-14 text-center">
+          <Building2 className="h-9 w-9 text-brand-600" />
+          <p className="text-lg font-semibold text-slate-900">No wards yet</p>
+          <p className="max-w-sm text-sm text-slate-500">{isAdmin ? 'Add a ward, then add its beds. Staff can then admit patients straight onto a bed.' : 'An administrator needs to set up wards and beds first.'}</p>
+          {isAdmin && <Button className="mt-3" icon={Plus} onClick={() => setWardModal(true)}>Add the first ward</Button>}
         </div>
-        {!wards.length && !wardsLoading ? (
-          <Card className="text-center" bodyClass="px-5 py-10"><Building2 className="mx-auto h-8 w-8 text-slate-400" /><p className="mt-3 font-semibold text-slate-800">No wards configured</p><p className="mt-1 text-sm text-slate-500">{isAdmin ? 'Add a ward, then add its beds to start the inpatient bed board.' : 'Ask an administrator to configure wards and beds.'}</p>{isAdmin && <Button className="mt-4" icon={Plus} onClick={() => setWardModal(true)}>Add first ward</Button>}</Card>
-        ) : (
-          <div className="grid gap-4 xl:grid-cols-2">
-            {wards.map((ward) => (
-              <Card key={ward._id} title={ward.name} subtitle={`${ward.code}${ward.description ? ` · ${ward.description}` : ''}`} bodyClass="p-4" action={<div className="flex items-center gap-2">{!ward.active && <Badge color="red">Closed</Badge>}{isAdmin && <>{ward.active && <Button size="sm" variant="secondary" icon={Plus} onClick={() => { setError(''); setBedWard(ward); }}>Add bed</Button>}<Button size="sm" variant="ghost" onClick={() => toggleWard(ward)}>{ward.active ? 'Close ward' : 'Reopen'}</Button></>}</div>}>
-                <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500"><span>{ward.counts?.available || 0} available</span><span>{ward.counts?.occupied || 0} occupied</span><span>{ward.counts?.maintenance || 0} maintenance</span></div>
-                {!ward.beds?.length ? <p className="rounded-xl border border-dashed border-slate-200 px-3 py-5 text-center text-sm text-slate-500">No beds added to this ward.</p> : (
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {ward.beds.map((bed) => {
-                      const admission = activeByBed.get(String(bed._id));
-                      const occupant = admission?.patient ? fullName(admission.patient) : '';
-                      const canToggle = isAdmin && ['available', 'maintenance'].includes(bed.status);
-                      return canToggle ? (
-                        <button key={bed._id} type="button" title={`${BED_LABEL[bed.status]} · ${bed.type}. Select to change status.`} onClick={() => setConfirmBed(bed)} className={`min-h-20 rounded-xl border p-3 text-left transition hover:shadow-sm ${BED_STYLE[bed.status]}`}>
-                          <span className="flex items-center justify-between gap-2"><span className="font-bold">{bed.bedNo}</span><BedDouble size={16} /></span><span className="mt-1 block text-xs">{BED_LABEL[bed.status]} · {bed.type}</span>
-                        </button>
-                      ) : (
-                        <div key={bed._id} className={`min-h-20 rounded-xl border p-3 ${BED_STYLE[bed.status]}`}>
-                          <span className="flex items-center justify-between gap-2"><span className="font-bold">{bed.bedNo}</span><BedDouble size={16} /></span>
-                          <span className="mt-1 block truncate text-xs">{occupant || `${BED_LABEL[bed.status]} · ${bed.type}`}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </Card>
-            ))}
+      ) : (
+        <>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <WardTab active={wardId === 'all'} onClick={() => setWardId('all')} label="All wards" used={totals.used} total={totals.all} />
+            {wards.map((w) => <WardTab key={w._id} active={wardId === w._id} onClick={() => setWardId(w._id)} label={w.name} used={w.counts?.occupied || 0} total={w.counts?.total || 0} closed={!w.active} />)}
+            <label className="relative ml-auto w-full sm:w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input className="input !rounded-full pl-9" placeholder="Find a patient or bed" aria-label="Find a patient or bed" value={q} onChange={(e) => setQ(e.target.value)} />
+            </label>
           </div>
-        )}
-      </section>
 
-      <Card title="Inpatient census" subtitle="Patients currently admitted. Transfers and discharges update the bed board." bodyClass="p-0">
-        {admissionsLoading ? <Spinner className="!py-8" /> : !admissions.length ? <p className="px-5 py-8 text-center text-sm text-slate-500">No patients are currently admitted.</p> : (
-          <ul className="divide-y divide-slate-100">
-            {admissions.map((admission) => {
-              const location = `${admission.ward?.name || 'Ward'} · Bed ${admission.bed?.bedNo || '—'}`;
-              return (
-                <li key={admission._id} className="p-4 sm:p-5">
-                  <div className="flex flex-wrap items-start gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><UserRound size={18} /></span>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
+            <div className="space-y-5">
+              {shownWards.map((w) => (
+                <section key={w._id} className="card p-4 sm:p-5">
+                  <header className="mb-4 flex flex-wrap items-center gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2"><p className="font-semibold text-slate-900">{fullName(admission.patient)}</p><Badge color="green">Admitted</Badge></div>
-                      <p className="mt-0.5 text-xs text-slate-500">{admission.patient?.patientNo} · {admission.patient?.sex === 'male' ? 'Male' : 'Female'}{admission.patient?.dob ? ` · ${age(admission.patient.dob)}` : ''} · {location}</p>
-                      <p className="mt-2 text-sm text-slate-700">{admission.reason}{admission.diagnosis ? ` · ${admission.diagnosis}` : ''}</p>
-                      <p className="mt-1 flex items-center gap-1 text-xs text-slate-500"><Clock3 size={13} /> Admitted {dateTime(admission.admittedAt)}{admission.admittedBy?.name ? ` by ${admission.admittedBy.name}` : ''}</p>
+                      <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">{w.name}{!w.active && <Badge color="red">Closed</Badge>}</h2>
+                      <p className="text-sm text-slate-500">{w.counts?.available || 0} free of {w.counts?.total || 0}{w.description ? ` · ${w.description}` : ''}</p>
                     </div>
-                    {canAdmit && <div className="flex gap-2"><Button size="sm" variant="secondary" onClick={() => { setTransferAdmission(admission); setTransferBedId(''); }}>Transfer</Button><Button size="sm" variant="danger-soft" onClick={() => setDischargeAdmission(admission)}>Discharge</Button></div>}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Card>
+                    <Occupancy used={w.counts?.occupied || 0} out={w.counts?.maintenance || 0} total={w.counts?.total || 0} />
+                    {isAdmin && (
+                      <div className="flex gap-1.5">
+                        {w.active && <Button size="sm" variant="secondary" icon={Plus} onClick={() => setBedsFor(w)}>Add beds</Button>}
+                        <WardToggle ward={w} onDone={refresh} />
+                      </div>
+                    )}
+                  </header>
+                  {!w.beds?.length ? (
+                    <p className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">{isAdmin ? 'No beds yet. Use “Add beds” to create them.' : 'No beds in this ward yet.'}</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
+                      {beds.filter((b) => b.ward._id === w._id).map((b) => (
+                        <BedTile key={b._id} bed={b} selected={selected?.id === b._id} dim={Boolean(term) && !matches(b)} onClick={() => setSelected({ kind: 'bed', id: b._id })} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              ))}
+            </div>
 
-      <Modal open={wardModal} onClose={() => setWardModal(false)} title="Add ward" footer={<><Button variant="secondary" onClick={() => setWardModal(false)}>Cancel</Button><Button type="submit" form="ward-form" loading={busy}>Save ward</Button></>}>
-        <form id="ward-form" onSubmit={createWard} className="space-y-3"><Field label="Ward name"><input className="input" required maxLength={100} autoFocus value={wardForm.name} onChange={(e) => setWardForm({ ...wardForm, name: e.target.value })} placeholder="e.g. Medical Ward" /></Field><Field label="Short code"><input className="input uppercase" required maxLength={16} value={wardForm.code} onChange={(e) => setWardForm({ ...wardForm, code: e.target.value.toUpperCase() })} placeholder="e.g. MED" /></Field><Field label="Description"><textarea className="input" maxLength={500} rows={2} value={wardForm.description} onChange={(e) => setWardForm({ ...wardForm, description: e.target.value })} placeholder="Optional notes about this ward" /></Field><ErrorNote>{error}</ErrorNote></form>
-      </Modal>
+            <aside className={`${selected ? 'fixed inset-0 z-40 overflow-y-auto bg-slate-100 p-3 lg:inset-auto lg:z-auto lg:overflow-visible lg:bg-transparent lg:p-0' : 'hidden lg:block'} lg:sticky lg:top-4`}>
+              {selected?.kind === 'admit' && <AdmitPanel freeBeds={freeBeds} onClose={close} onDone={done} />}
+              {selectedBed && <BedPanel bed={selectedBed} freeBeds={freeBeds} isAdmin={isAdmin} canCare={canCare} onClose={close} onDone={done} />}
+              {!selected && (
+                <div className="card px-6 py-10 text-center">
+                  <BedDouble className="mx-auto h-9 w-9 text-brand-600" />
+                  <p className="mt-2 font-semibold text-slate-900">Select a bed</p>
+                  <p className="mt-1 text-sm text-slate-500">{canCare ? 'Pick a free bed to admit someone, or an occupied bed to transfer or discharge.' : 'Pick a bed to see who is in it.'}</p>
+                  <Legend />
+                </div>
+              )}
+            </aside>
+          </div>
+        </>
+      )}
 
-      <Modal open={Boolean(bedWard)} onClose={() => setBedWard(null)} title={bedWard ? `Add a bed · ${bedWard.name}` : 'Add bed'} footer={<><Button variant="secondary" onClick={() => setBedWard(null)}>Cancel</Button><Button type="submit" form="bed-form" loading={busy}>Add bed</Button></>}>
-        <form id="bed-form" onSubmit={createBed} className="space-y-3"><Field label="Bed number"><input className="input" required autoFocus maxLength={32} value={bedForm.bedNo} onChange={(e) => setBedForm({ ...bedForm, bedNo: e.target.value })} placeholder="e.g. MED-01" /></Field><Field label="Bed type"><select className="input" value={bedForm.type} onChange={(e) => setBedForm({ ...bedForm, type: e.target.value })}><option>Standard</option><option>Isolation</option><option>ICU</option><option>Maternity</option><option>Paediatric</option></select></Field><ErrorNote>{error}</ErrorNote></form>
-      </Modal>
-
-      <Modal open={admitModal} onClose={() => { setAdmitModal(false); setPatient(null); }} title="Admit patient" size="lg" footer={<><Button variant="secondary" onClick={() => { setAdmitModal(false); setPatient(null); }}>Cancel</Button><Button type="submit" form="admission-form" loading={busy} disabled={!patient}>Confirm admission</Button></>}>
-        <form id="admission-form" onSubmit={createAdmission} className="space-y-4">
-          {!patient ? <Field label="Find patient"><PatientPicker onPick={setPatient} autoFocus placeholder="Search name, phone, patient number, or folder number" /></Field> : <div className="flex items-center gap-3 rounded-xl border border-brand-200 bg-brand-50/60 p-3"><span className="min-w-0 flex-1"><span className="block font-semibold text-slate-900">{fullName(patient)}</span><span className="text-xs text-slate-600">{patient.patientNo} · {patient.phone || 'No phone on file'}</span></span><Button size="sm" variant="secondary" icon={X} type="button" onClick={() => setPatient(null)}>Change</Button></div>}
-          <Field label="Available bed"><select className="input" required value={admissionForm.bedId} onChange={(e) => setAdmissionForm({ ...admissionForm, bedId: e.target.value })}><option value="">Choose a bed…</option>{availableBeds.map((bed) => <option key={bed._id} value={bed._id}>{bed.wardName} · {bed.bedNo} · {bed.type}</option>)}</select></Field>
-          {!availableBeds.length && <p className="-mt-2 text-xs text-amber-700">No beds are currently available in open wards.</p>}
-          <Field label="Reason for admission"><textarea className="input" required maxLength={1000} rows={3} value={admissionForm.reason} onChange={(e) => setAdmissionForm({ ...admissionForm, reason: e.target.value })} placeholder="Brief clinical reason for admission" /></Field>
-          <Field label="Provisional diagnosis"><input className="input" maxLength={500} value={admissionForm.diagnosis} onChange={(e) => setAdmissionForm({ ...admissionForm, diagnosis: e.target.value })} /></Field>
-          <p className="rounded-xl bg-slate-50 px-3.5 py-3 text-xs leading-5 text-slate-600">This records an inpatient admission and reserves the selected bed. It does not replace a clinician’s admission notes or local inpatient procedures.</p>
-          <ErrorNote>{error}</ErrorNote>
-        </form>
-      </Modal>
-
-      <Modal open={Boolean(transferAdmission)} onClose={() => setTransferAdmission(null)} title="Transfer patient" footer={<><Button variant="secondary" onClick={() => setTransferAdmission(null)}>Cancel</Button><Button loading={busy} disabled={!transferBedId} onClick={transfer}>Transfer bed</Button></>}>
-        <div className="space-y-3"><p className="text-sm text-slate-600">{fullName(transferAdmission?.patient)} · Currently {transferAdmission?.ward?.name}, bed {transferAdmission?.bed?.bedNo}.</p><Field label="New bed"><select className="input" value={transferBedId} onChange={(e) => setTransferBedId(e.target.value)}><option value="">Choose a bed…</option>{availableBeds.map((bed) => <option key={bed._id} value={bed._id}>{bed.wardName} · {bed.bedNo} · {bed.type}</option>)}</select></Field>{!availableBeds.length && <p className="text-xs text-amber-700">No other beds are available.</p>}</div>
-      </Modal>
-
-      <Confirm open={Boolean(dischargeAdmission)} title="Discharge this patient?" confirmLabel="Confirm discharge" tone="danger" icon={ShieldAlert} busy={busy} onClose={() => setDischargeAdmission(null)} onConfirm={discharge}>
-        {fullName(dischargeAdmission?.patient)} will be marked as discharged, and bed {dischargeAdmission?.bed?.bedNo} will be made available.
-      </Confirm>
-
-      <Confirm open={Boolean(confirmBed)} title={confirmBed?.status === 'available' ? 'Mark bed for maintenance?' : 'Return bed to service?'} confirmLabel={confirmBed?.status === 'available' ? 'Mark maintenance' : 'Make available'} tone={confirmBed?.status === 'available' ? 'danger' : 'primary'} busy={busy} onClose={() => setConfirmBed(null)} onConfirm={changeBedStatus}>
-        {confirmBed?.status === 'available' ? `${confirmBed?.bedNo} will no longer be offered for admission.` : `${confirmBed?.bedNo} will be available for admission again.`}
-      </Confirm>
+      <AddWardModal open={wardModal} onClose={() => setWardModal(false)} onDone={() => { setWardModal(false); refresh(); }} />
+      <AddBedsModal ward={bedsFor} onClose={() => setBedsFor(null)} onDone={() => { setBedsFor(null); refresh(); }} />
     </div>
   );
 }
 
-function Stat({ icon: Icon, label, value, tone }) {
-  const colors = { slate: 'bg-slate-100 text-slate-700', green: 'bg-emerald-50 text-emerald-700', amber: 'bg-amber-50 text-amber-800' };
-  return <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4"><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${colors[tone]}`}><Icon size={18} /></span><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="text-xl font-bold text-slate-900">{value}</p></div></div>;
+function WardTab({ active, onClick, label, used, total, closed }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={active}
+      className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors ${active ? 'border-brand-700 bg-brand-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`}>
+      <span className={closed ? 'line-through opacity-70' : ''}>{label}</span>
+      <span className={`money text-xs ${active ? 'text-brand-100' : 'text-slate-500'}`}>{used}/{total}</span>
+    </button>
+  );
+}
+
+function Occupancy({ used, out, total }) {
+  if (!total) return null;
+  const pct = (n) => `${(n / total) * 100}%`;
+  return (
+    <div className="hidden w-36 sm:block" aria-label={`${used} of ${total} beds in use`}>
+      <div className="flex h-2 overflow-hidden rounded-full bg-emerald-100">
+        <span className="bg-brand-600" style={{ width: pct(used) }} />
+        <span className="bg-slate-300" style={{ width: pct(out) }} />
+      </div>
+      <p className="mt-1 text-right text-xs text-slate-500">{Math.round((used / total) * 100)}% full</p>
+    </div>
+  );
+}
+
+function Legend() {
+  return (
+    <ul className="mt-5 space-y-1.5 text-left text-xs text-slate-600">
+      <li className="flex items-center gap-2"><span className="h-3 w-3 rounded border border-dashed border-emerald-400 bg-white" /> Free</li>
+      <li className="flex items-center gap-2"><span className="h-3 w-3 rounded bg-brand-600" /> Patient in bed</li>
+      <li className="flex items-center gap-2"><span className="h-3 w-3 rounded bg-amber-400" /> In longer than a week</li>
+      <li className="flex items-center gap-2"><span className="hatched h-3 w-3 rounded border border-slate-300" /> Out of service</li>
+    </ul>
+  );
+}
+
+function BedTile({ bed, selected, dim, onClick }) {
+  const a = bed.admission;
+  const days = a ? daysIn(a.admittedAt) : 0;
+  const ring = selected ? 'ring-2 ring-brand-600 ring-offset-2' : '';
+  const base = `relative flex min-h-28 flex-col rounded-xl border p-3 text-left transition ${ring} ${dim ? 'opacity-35' : ''}`;
+  if (bed.status === 'occupied') {
+    return (
+      <button type="button" onClick={onClick} className={`${base} border-slate-200 bg-white hover:border-slate-300`}>
+        <span className={`absolute inset-y-2 left-0 w-1 rounded-r ${days >= LONG_STAY ? 'bg-amber-400' : 'bg-brand-600'}`} />
+        <span className="flex items-center justify-between text-xs font-semibold text-slate-500">{bed.bedNo}
+          {a?.patient?.allergies?.length > 0 && <AlertTriangle className="h-3.5 w-3.5 text-rose-600" aria-label="Has allergies" />}
+        </span>
+        <span className="mt-1.5 line-clamp-2 font-semibold leading-snug text-slate-900">{a ? fullName(a.patient) : 'Occupied'}</span>
+        {a && (
+          <span className="mt-auto pt-1 text-xs text-slate-500">
+            {a.patient?.sex === 'male' ? 'M' : 'F'}{a.patient?.dob ? `, ${age(a.patient.dob)}` : ''} · <span className={days >= LONG_STAY ? 'font-semibold text-amber-700' : ''}>Day {days}</span>
+          </span>
+        )}
+      </button>
+    );
+  }
+  if (bed.status === 'maintenance') {
+    return (
+      <button type="button" onClick={onClick} className={`${base} hatched border-slate-200 text-slate-500`}>
+        <span className="text-xs font-semibold">{bed.bedNo}</span>
+        <span className="mt-auto flex items-center gap-1 rounded bg-white/90 px-1.5 py-0.5 text-xs font-medium"><Wrench className="h-3 w-3" /> Out of service</span>
+      </button>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} disabled={!bed.ward.active}
+      className={`${base} border-dashed border-emerald-300 bg-white hover:border-emerald-500 hover:bg-emerald-50/50 disabled:cursor-not-allowed disabled:opacity-50`}>
+      <span className="text-xs font-semibold text-slate-500">{bed.bedNo}</span>
+      <span className="mt-auto text-sm font-semibold text-emerald-700">Free</span>
+      <span className="text-xs text-slate-400">{bed.type}</span>
+    </button>
+  );
+}
+
+function PanelShell({ title, sub, onClose, children }) {
+  return (
+    <div className="card overflow-hidden">
+      <header className="flex items-start gap-3 border-b border-slate-100 p-4">
+        <button type="button" onClick={onClose} aria-label="Close" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200">
+          <ArrowLeft className="h-4 w-4 lg:hidden" /><X className="hidden h-4 w-4 lg:block" />
+        </button>
+        <div className="min-w-0">
+          <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+          {sub && <p className="text-sm text-slate-500">{sub}</p>}
+        </div>
+      </header>
+      <div className="space-y-4 p-4">{children}</div>
+    </div>
+  );
+}
+
+function FreeBedChooser({ beds, value, onChange, exclude }) {
+  const options = beds.filter((b) => b._id !== exclude);
+  const groups = options.reduce((m, b) => { (m[b.ward.name] ||= []).push(b); return m; }, {});
+  if (!options.length) return <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">There are no free beds in open wards.</p>;
+  return (
+    <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
+      {Object.entries(groups).map(([ward, list]) => (
+        <div key={ward}>
+          <p className="mb-1.5 text-xs font-semibold text-slate-500">{ward}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {list.map((b) => (
+              <button key={b._id} type="button" onClick={() => onChange(b._id)} aria-pressed={value === b._id}
+                className={`rounded-lg border px-2.5 py-1.5 text-sm font-semibold transition-colors ${value === b._id ? 'border-brand-700 bg-brand-700 text-white' : 'border-emerald-300 bg-white text-slate-700 hover:bg-emerald-50'}`}>
+                {b.bedNo}{b.type !== 'Standard' && <span className={`ml-1 text-xs font-normal ${value === b._id ? 'text-brand-100' : 'text-slate-400'}`}>{b.type}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AdmitForm({ bedId, freeBeds, onDone }) {
+  const [patient, setPatient] = useState(null);
+  const [chosen, setChosen] = useState(bedId || '');
+  const [reason, setReason] = useState('');
+  const [diagnosis, setDiagnosis] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function admit(e) {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await api('/admissions', { method: 'POST', body: { patientId: patient._id, bedId: chosen, reason, diagnosis } });
+      const bed = freeBeds.find((b) => b._id === chosen);
+      toast.success(`${fullName(patient)} admitted to ${bed ? `${bed.ward.name}, bed ${bed.bedNo}` : 'the ward'}`);
+      onDone();
+    } catch (err) { setError(err.message); } finally { setBusy(false); }
+  }
+
+  return (
+    <form onSubmit={admit} className="space-y-4">
+      <div>
+        <span className="mb-1.5 block text-sm font-semibold text-slate-800">Patient</span>
+        {patient ? (
+          <div className="flex items-center gap-3 rounded-xl border border-brand-200 bg-brand-50/60 p-3">
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-slate-900">{fullName(patient)}</span>
+              <span className="text-xs text-slate-600">{patient.patientNo}{patient.dob ? ` · ${age(patient.dob)}` : ''}</span>
+              {patient.allergies?.length > 0 && <span className="mt-1 block text-xs font-semibold text-rose-700">Allergic to {patient.allergies.join(', ')}</span>}
+            </span>
+            <Button size="sm" variant="ghost" type="button" onClick={() => setPatient(null)}>Change</Button>
+          </div>
+        ) : <PatientPicker onPick={setPatient} autoFocus placeholder="Name, phone or patient number" />}
+      </div>
+      {!bedId && (
+        <div>
+          <span className="mb-1.5 block text-sm font-semibold text-slate-800">Bed</span>
+          <FreeBedChooser beds={freeBeds} value={chosen} onChange={setChosen} />
+        </div>
+      )}
+      <Field label="Reason for admission"><textarea className="input" required maxLength={1000} rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Observation after appendicectomy" /></Field>
+      <Field label="Working diagnosis (optional)"><input className="input" maxLength={500} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} /></Field>
+      <ErrorNote>{error}</ErrorNote>
+      <Button type="submit" className="w-full" size="lg" icon={UserPlus} loading={busy} disabled={!patient || !chosen || !reason.trim()}>Admit</Button>
+    </form>
+  );
+}
+
+function AdmitPanel({ freeBeds, onClose, onDone }) {
+  return (
+    <PanelShell title="Admit a patient" sub={`${freeBeds.length} free bed${freeBeds.length === 1 ? '' : 's'}`} onClose={onClose}>
+      <AdmitForm freeBeds={freeBeds} onDone={onDone} />
+    </PanelShell>
+  );
+}
+
+function BedPanel({ bed, freeBeds, isAdmin, canCare, onClose, onDone }) {
+  const where = `${bed.ward.name} · ${bed.type}`;
+  if (bed.status === 'occupied') return <OccupiedPanel bed={bed} freeBeds={freeBeds} canCare={canCare} onClose={onClose} onDone={onDone} />;
+  if (bed.status === 'maintenance') {
+    return (
+      <PanelShell title={`Bed ${bed.bedNo}`} sub={where} onClose={onClose}>
+        <p className="flex items-center gap-2 text-sm text-slate-600"><Wrench className="h-4 w-4" /> Out of service. It isn’t offered for admissions.</p>
+        {isAdmin ? <BedStatusButton bed={bed} to="available" onDone={onDone} /> : <p className="text-sm text-slate-500">An administrator can return it to service.</p>}
+      </PanelShell>
+    );
+  }
+  return (
+    <PanelShell title={`Bed ${bed.bedNo} is free`} sub={where} onClose={onClose}>
+      {canCare ? <AdmitForm key={bed._id} bedId={bed._id} freeBeds={freeBeds} onDone={onDone} /> : <p className="text-sm text-slate-500">Doctors and nurses can admit a patient here.</p>}
+      {isAdmin && <div className="border-t border-slate-100 pt-4"><BedStatusButton bed={bed} to="maintenance" onDone={onDone} /></div>}
+    </PanelShell>
+  );
+}
+
+function OccupiedPanel({ bed, freeBeds, canCare, onClose, onDone }) {
+  const a = bed.admission;
+  const [mode, setMode] = useState('');
+  const [target, setTarget] = useState('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => { setMode(''); setTarget(''); setNote(''); setError(''); }, [bed._id]);
+  if (!a) return <PanelShell title={`Bed ${bed.bedNo}`} sub={bed.ward.name} onClose={onClose}><p className="text-sm text-slate-500">Loading the admission…</p></PanelShell>;
+  const p = a.patient;
+  const days = daysIn(a.admittedAt);
+
+  async function act(path, body, message) {
+    setBusy(true);
+    setError('');
+    try { await api(path, { method: 'POST', body }); toast.success(message); onDone(); } catch (e) { setError(e.message); } finally { setBusy(false); }
+  }
+  const targetBed = freeBeds.find((b) => b._id === target);
+
+  return (
+    <PanelShell title={fullName(p)} sub={`${p?.sex === 'male' ? 'Male' : 'Female'}${p?.dob ? `, ${age(p.dob)}` : ''} · ${p?.patientNo}`} onClose={onClose}>
+      {p?.allergies?.length > 0 && <p className="flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800"><AlertTriangle className="h-4 w-4" /> Allergic to {p.allergies.join(', ')}</p>}
+      <dl className="grid grid-cols-2 gap-3 text-sm">
+        <div><dt className="text-slate-500">Bed</dt><dd className="font-semibold text-slate-900">{bed.bedNo}, {bed.ward.name}</dd></div>
+        <div><dt className="text-slate-500">Stay</dt><dd className={`font-semibold ${days >= LONG_STAY ? 'text-amber-700' : 'text-slate-900'}`}>Day {days}</dd></div>
+        <div className="col-span-2"><dt className="text-slate-500">Reason</dt><dd className="text-slate-900">{a.reason}</dd></div>
+        {a.diagnosis && <div className="col-span-2"><dt className="text-slate-500">Working diagnosis</dt><dd className="text-slate-900">{a.diagnosis}</dd></div>}
+        <div className="col-span-2"><dt className="text-slate-500">Admitted</dt><dd className="text-slate-900">{dateTime(a.admittedAt)}{a.admittedBy?.name ? ` by ${a.admittedBy.name}` : ''}</dd></div>
+      </dl>
+
+      {canCare && mode === '' && (
+        <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
+          <Button variant="secondary" icon={ArrowRightLeft} onClick={() => setMode('transfer')} disabled={!freeBeds.length}>Move bed</Button>
+          <Button variant="danger-soft" icon={LogOut} onClick={() => setMode('discharge')}>Discharge</Button>
+        </div>
+      )}
+      {mode === 'transfer' && (
+        <div className="space-y-3 border-t border-slate-100 pt-4">
+          <p className="text-sm font-semibold text-slate-800">Move {p?.firstName} to</p>
+          <FreeBedChooser beds={freeBeds} value={target} onChange={setTarget} exclude={bed._id} />
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => setMode('')}>Back</Button>
+            <Button className="flex-1" loading={busy} disabled={!target} onClick={() => act(`/admissions/${a._id}/transfer`, { bedId: target }, `Moved to ${targetBed?.ward.name}, bed ${targetBed?.bedNo}`)}>
+              {targetBed ? `Move to ${targetBed.bedNo}` : 'Choose a bed'}
+            </Button>
+          </div>
+        </div>
+      )}
+      {mode === 'discharge' && (
+        <div className="space-y-3 border-t border-slate-100 pt-4">
+          <Field label="Discharge note (optional)"><textarea className="input" rows={3} maxLength={2000} autoFocus value={note} onChange={(e) => setNote(e.target.value)} placeholder="Condition on discharge, follow-up, medicines to continue" /></Field>
+          <p className="text-xs text-slate-500">Bed {bed.bedNo} becomes free straight away.</p>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => setMode('')}>Back</Button>
+            <Button className="flex-1" variant="danger" loading={busy} onClick={() => act(`/admissions/${a._id}/discharge`, { dischargeNote: note }, `${fullName(p)} discharged`)}>Discharge</Button>
+          </div>
+        </div>
+      )}
+      <ErrorNote>{error}</ErrorNote>
+    </PanelShell>
+  );
+}
+
+function BedStatusButton({ bed, to, onDone }) {
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setBusy(true);
+    try {
+      await api(`/beds/${bed._id}`, { method: 'PATCH', body: { status: to } });
+      toast.success(to === 'maintenance' ? `Bed ${bed.bedNo} taken out of service` : `Bed ${bed.bedNo} back in service`);
+      onDone();
+    } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+  return to === 'maintenance'
+    ? <Button variant="ghost" size="sm" icon={Wrench} loading={busy} onClick={go}>Take out of service</Button>
+    : <Button className="w-full" icon={BedDouble} loading={busy} onClick={go}>Return to service</Button>;
+}
+
+function WardToggle({ ward, onDone }) {
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setBusy(true);
+    try { await api(`/wards/${ward._id}`, { method: 'PATCH', body: { active: !ward.active } }); toast.success(ward.active ? `${ward.name} closed` : `${ward.name} reopened`); onDone(); }
+    catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+  return <Button size="sm" variant="ghost" loading={busy} onClick={go} title={ward.active ? 'Stops new admissions here. Patients already in beds stay.' : 'Allows admissions again'}>{ward.active ? 'Close ward' : 'Reopen'}</Button>;
+}
+
+function AddWardModal({ open, onClose, onDone }) {
+  const [form, setForm] = useState({ name: '', code: '', description: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => { if (open) { setForm({ name: '', code: '', description: '' }); setError(''); } }, [open]);
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try { await api('/wards', { method: 'POST', body: form }); toast.success(`${form.name} added`); onDone(); } catch (err) { setError(err.message); } finally { setBusy(false); }
+  };
+  return (
+    <Modal open={open} onClose={onClose} title="Add a ward" footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button type="submit" form="ward-form" loading={busy}>Add ward</Button></>}>
+      <form id="ward-form" onSubmit={save} className="space-y-3">
+        <Field label="Name"><input className="input" required maxLength={100} autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Female Surgical Ward" /></Field>
+        <Field label="Short code" hint="Used at the start of bed numbers, e.g. FSW-01"><input className="input uppercase" required maxLength={16} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="FSW" /></Field>
+        <Field label="Notes (optional)"><input className="input" maxLength={500} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. Second floor, east wing" /></Field>
+        <ErrorNote>{error}</ErrorNote>
+      </form>
+    </Modal>
+  );
+}
+
+function AddBedsModal({ ward, onClose, onDone }) {
+  const [form, setForm] = useState({ prefix: '', from: '1', to: '10', type: 'Standard' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    if (!ward) return;
+    const next = (ward.beds?.length || 0) + 1;
+    setForm({ prefix: `${ward.code}-`, from: String(next), to: String(next + 9), type: 'Standard' });
+    setError('');
+  }, [ward]);
+  const names = ward ? bedNumbers(form.prefix, form.from, form.to, (ward.beds || []).map((b) => b.bedNo)) : [];
+
+  async function save(e) {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    let made = 0;
+    try {
+      for (const bedNo of names) { await api(`/wards/${ward._id}/beds`, { method: 'POST', body: { bedNo, type: form.type } }); made += 1; }
+      toast.success(`${made} bed${made === 1 ? '' : 's'} added to ${ward.name}`);
+      onDone();
+    } catch (err) { setError(`${made} added, then: ${err.message}`); } finally { setBusy(false); }
+  }
+
+  return (
+    <Modal open={Boolean(ward)} onClose={onClose} title={ward ? `Add beds to ${ward.name}` : 'Add beds'} guardChanges={false}
+      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button type="submit" form="beds-form" loading={busy} disabled={!names.length}>Add {names.length} bed{names.length === 1 ? '' : 's'}</Button></>}>
+      <form id="beds-form" onSubmit={save} className="space-y-3">
+        <div className="grid grid-cols-3 gap-2">
+          <Field label="Starts with"><input className="input" maxLength={20} value={form.prefix} onChange={(e) => setForm({ ...form, prefix: e.target.value })} /></Field>
+          <Field label="From"><input className="input money" type="number" min="0" value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} /></Field>
+          <Field label="To"><input className="input money" type="number" min="0" value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} /></Field>
+        </div>
+        <Field label="Bed type">
+          <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{['Standard', 'Isolation', 'ICU', 'Maternity', 'Paediatric', 'Private room'].map((t) => <option key={t}>{t}</option>)}</select>
+        </Field>
+        <p className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          {names.length ? <>Will add: <b className="text-slate-900">{names.length > 6 ? `${names.slice(0, 3).join(', ')} … ${names.at(-1)}` : names.join(', ')}</b></> : 'Nothing to add: check the numbers, or those beds already exist.'}
+        </p>
+        <ErrorNote>{error}</ErrorNote>
+      </form>
+    </Modal>
+  );
 }
