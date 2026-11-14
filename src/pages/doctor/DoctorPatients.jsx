@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Search, Upload, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Upload, Users, X } from 'lucide-react';
 import { api } from '../../api.js';
 import { useAuth } from '../../auth.jsx';
 import { age, fullName } from '../../lib/format.js';
 import { Avatar, Button, Card, ErrorNote, PageHeader, Spinner } from '../../components/ui.jsx';
+import ImportPatients from '../admin/Import.jsx';
 
 const PAGE_SIZE = 25;
 
@@ -16,6 +17,8 @@ export default function DoctorPatients() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showImport, setShowImport] = useState(false);
+  const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
     let current = true;
@@ -28,7 +31,7 @@ export default function DoctorPatients() {
         .finally(() => { if (current) setLoading(false); });
     }, query ? 200 : 0);
     return () => { current = false; clearTimeout(timer); };
-  }, [page, query]);
+  }, [page, query, refresh]);
 
   function search(value) {
     setQuery(value);
@@ -41,7 +44,8 @@ export default function DoctorPatients() {
   return (
     <div>
       <PageHeader title="Patients" subtitle="Browse the patient register and open a patient’s chart."
-        actions={isAdmin && <Link to="/admin/import" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"><Upload className="h-4 w-4" /> Import patients</Link>} />
+        actions={isAdmin && <Button variant={showImport ? 'secondary' : 'primary'} icon={showImport ? X : Upload} onClick={() => setShowImport((visible) => !visible)}>{showImport ? 'Close import' : 'Import patients'}</Button>} />
+      {isAdmin && showImport && <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"><ImportPatients embedded onImported={() => { setPage(1); setRefresh((n) => n + 1); }} /></div>}
       <Card bodyClass="p-0">
         <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/70 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="relative w-full sm:max-w-md">

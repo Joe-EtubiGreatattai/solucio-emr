@@ -16,7 +16,7 @@ const FIELDS = [
 const GUESS = { fullName: /^(full ?name|name|patient ?name)$/i, firstName: /first|given/i, lastName: /last|surname|family/i, otherNames: /other|middle/i, sex: /sex|gender/i, dob: /birth|dob/i, phone: /phone|mobile|tel/i, address: /address/i, folderNo: /folder|file|card|hosp.*no|patient.*(no|id)/i, hmoName: /^hmo$|insur|hmo name/i, memberNo: /member|enrol|policy/i, allergies: /allerg/i, notes: /note|history|remark/i };
 const BASE = `${(import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')}/api`;
 
-export default function Import() {
+export default function Import({ embedded = false, onImported }) {
   const [file, setFile] = useState(null);
   const [parsed, setParsed] = useState(null);
   const [mapping, setMapping] = useState({});
@@ -47,7 +47,7 @@ export default function Import() {
     try {
       const b = await api('/imports', { method: 'POST', body: { rows: parsed.rows, mapping, fileName: file.name } });
       toast.success(`Imported ${b.imported} patients (${b.skipped} skipped)`);
-      setFile(null); setParsed(null); setPreview(null); reload();
+      setFile(null); setParsed(null); setPreview(null); reload(); onImported?.(b);
     } catch (e) { setError(e.message); } finally { setBusy(''); }
   }
   async function undo(b) {
@@ -57,8 +57,8 @@ export default function Import() {
 
   return (
     <div>
-      <PageHeader title="Import patients" subtitle="Bring in patients from the old records: a CSV or Excel (.xlsx) file with one patient per row."
-        back={<Link to="/patients" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft size={15} /> Patients</Link>} />
+      {!embedded && <PageHeader title="Import patients" subtitle="Bring in patients from the old records: a CSV or Excel (.xlsx) file with one patient per row."
+        back={<Link to="/patients" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft size={15} /> Patients</Link>} />}
       <div className="space-y-4">
         <Card title="1. Choose the file">
           <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 p-8 text-center hover:border-brand-400">
