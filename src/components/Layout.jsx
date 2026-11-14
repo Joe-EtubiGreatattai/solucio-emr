@@ -40,6 +40,9 @@ function Sidebar({ onLogout, orgName, role }) {
         <button type="button" onClick={onLogout} className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-[15px] text-slate-500 transition hover:bg-white/70 hover:text-slate-800">
           <LogOut className="h-5 w-5" /> Sign out
         </button>
+        <p className="mt-2 flex items-center justify-center gap-1.5 px-4 text-xs text-slate-400">
+          Powered by <img src={`${import.meta.env.BASE_URL}icon.png`} alt="" className="h-3.5 w-3.5 rounded" /> <span className="font-semibold text-slate-500">HealOS</span>
+        </p>
       </div>
     </div>
   );

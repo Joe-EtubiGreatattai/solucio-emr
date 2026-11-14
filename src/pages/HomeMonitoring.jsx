@@ -14,6 +14,7 @@ const VITALS = {
   oxygenSaturation: [{ key: 'spo2', label: 'Oxygen saturation', unit: '%' }],
   weight: [{ key: 'weightKg', label: 'Weight', unit: 'kg' }],
   height: [{ key: 'heightCm', label: 'Height', unit: 'cm' }],
+  urinationFrequency: [{ key: 'urineFreq', label: 'Urination frequency', unit: 'times/day' }],
 };
 const localDateTime = () => {
   const now = new Date();
@@ -37,6 +38,7 @@ export default function HomeMonitoring({ token }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [values, setValues] = useState({});
+  const [customValues, setCustomValues] = useState({});
   const [symptoms, setSymptoms] = useState([]);
   const [recordedAt, setRecordedAt] = useState(localDateTime);
   const [consent, setConsent] = useState(false);
@@ -58,6 +60,7 @@ export default function HomeMonitoring({ token }) {
   }, [token]);
 
   const selectedFields = useMemo(() => (plan?.vitals || []).flatMap((type) => VITALS[type] || []), [plan]);
+  const customMeasurements = plan?.customMeasurements || [];
   const setSymptom = (index, answer) => setSymptoms((current) => current.map((item, i) => i === index ? { ...item, answer } : item));
 
   async function submit(event) {
@@ -69,6 +72,7 @@ export default function HomeMonitoring({ token }) {
         method: 'POST',
         body: JSON.stringify({
           ...values,
+          custom: customMeasurements.map((name) => ({ name, value: customValues[name] || '' })).filter((c) => String(c.value).trim()),
           symptoms,
           recordedAt: new Date(recordedAt).toISOString(),
           consent,
@@ -84,6 +88,7 @@ export default function HomeMonitoring({ token }) {
 
   function anotherCheckIn() {
     setValues({});
+    setCustomValues({});
     setSymptoms(plan.symptomQuestions.map((question) => ({ question, answer: '' })));
     setRecordedAt(localDateTime());
     setConsent(false);
@@ -138,6 +143,21 @@ export default function HomeMonitoring({ token }) {
                       <label key={field.key} className="block">
                         <span className="mb-1.5 block text-sm font-semibold text-slate-700">{field.label} <span className="font-normal text-slate-500">({field.unit})</span></span>
                         <input className="input" type="number" inputMode="decimal" min="0" step="any" value={values[field.key] || ''} onChange={(e) => setValues((current) => ({ ...current, [field.key]: e.target.value }))} />
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+
+              {customMeasurements.length > 0 && (
+                <fieldset>
+                  <legend className="text-base font-bold text-slate-900">Other measurements</legend>
+                  <p className="mt-1 text-sm text-slate-500">Enter the readings you have. You can leave any blank.</p>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    {customMeasurements.map((name) => (
+                      <label key={name} className="block">
+                        <span className="mb-1.5 block text-sm font-semibold text-slate-700">{name}</span>
+                        <input className="input" type="text" inputMode="decimal" maxLength={120} value={customValues[name] || ''} onChange={(e) => setCustomValues((current) => ({ ...current, [name]: e.target.value }))} />
                       </label>
                     ))}
                   </div>

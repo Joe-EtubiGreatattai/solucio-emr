@@ -8,11 +8,12 @@ import { Badge, Button, Card, Confirm, ErrorNote, Field, Modal } from '../../com
 const VITAL_OPTIONS = [
   ['bloodPressure', 'Blood pressure'], ['pulse', 'Pulse'], ['temperature', 'Temperature'],
   ['respiratoryRate', 'Breathing rate'], ['oxygenSaturation', 'Oxygen saturation'], ['weight', 'Weight'], ['height', 'Height'],
+  ['urinationFrequency', 'Urination frequency'],
 ];
 const VITAL_LABELS = Object.fromEntries(VITAL_OPTIONS);
 const EMPTY_FORM = {
   title: 'Home monitoring', instructions: '', vitals: ['bloodPressure', 'pulse', 'temperature'],
-  symptomQuestions: '', frequency: 'daily', durationDays: 14,
+  customMeasurements: '', symptomQuestions: '', frequency: 'daily', durationDays: 14,
 };
 
 function formatMeasurement(entry) {
@@ -21,8 +22,11 @@ function formatMeasurement(entry) {
     [['pulse'], (v) => `Pulse ${v.pulse} /min`], [['tempC'], (v) => `Temp ${v.tempC}°C`],
     [['respRate'], (v) => `Breathing ${v.respRate} /min`], [['spo2'], (v) => `SpO2 ${v.spo2}%`],
     [['weightKg'], (v) => `Weight ${v.weightKg} kg`], [['heightCm'], (v) => `Height ${v.heightCm} cm`],
+    [['urineFreq'], (v) => `Urination ${v.urineFreq}/day`],
   ];
-  return pairs.filter(([fields]) => fields.some((key) => entry[key] != null)).map(([, format]) => format(entry));
+  const fixed = pairs.filter(([fields]) => fields.some((key) => entry[key] != null)).map(([, format]) => format(entry));
+  const custom = (entry.custom || []).filter((c) => c.value).map((c) => `${c.name}: ${c.value}`);
+  return [...fixed, ...custom];
 }
 
 function isPlanActive(plan) { return plan.status === 'active' && new Date(plan.endsAt) >= new Date(); }
@@ -49,9 +53,10 @@ export default function HomeMonitoringPanel({ patientId, homeMonitoring = { plan
     setBusy(true);
     try {
       const symptomQuestions = form.symptomQuestions.split('\n').map((item) => item.trim()).filter(Boolean);
+      const customMeasurements = form.customMeasurements.split('\n').map((item) => item.trim()).filter(Boolean);
       const data = await api(`/home-monitoring/patients/${patientId}/plans`, {
         method: 'POST',
-        body: { ...form, symptomQuestions, durationDays: Number(form.durationDays) },
+        body: { ...form, symptomQuestions, customMeasurements, durationDays: Number(form.durationDays) },
       });
       setShareUrl(data.shareUrl);
       setForm(EMPTY_FORM);
@@ -133,7 +138,7 @@ export default function HomeMonitoringPanel({ patientId, homeMonitoring = { plan
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><Activity size={19} /></span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2"><p className="font-semibold text-slate-900">{plan.title}</p><Badge color={isPlanActive(plan) ? 'green' : plan.status === 'revoked' ? 'red' : 'slate'}>{isPlanActive(plan) ? 'Active' : plan.status === 'revoked' ? 'Stopped' : 'Ended'}</Badge></div>
-                  <p className="mt-1 text-xs text-slate-500">{(plan.vitals || []).map((v) => VITAL_LABELS[v]).filter(Boolean).join(', ')} · {dateTime(plan.startsAt)} to {dateTime(plan.endsAt)}</p>
+                  <p className="mt-1 text-xs text-slate-500">{[...(plan.vitals || []).map((v) => VITAL_LABELS[v]).filter(Boolean), ...(plan.customMeasurements || [])].join(', ')} · {dateTime(plan.startsAt)} to {dateTime(plan.endsAt)}</p>
                   {plan.instructions && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{plan.instructions}</p>}
                 </div>
                 {isPlanActive(plan) && <Button size="sm" variant="danger-soft" icon={X} onClick={() => setRevokePlan(plan)}>Stop link</Button>}
@@ -188,6 +193,7 @@ export default function HomeMonitoringPanel({ patientId, homeMonitoring = { plan
               ))}
             </div>
           </fieldset>
+          <Field label="Other measurements to record" hint="One per line, e.g. Blood sugar (mmol/L) or Peak flow. Up to 6."><textarea className="input" rows={2} value={form.customMeasurements} onChange={(e) => setForm({ ...form, customMeasurements: e.target.value })} placeholder={'For example:\nBlood sugar (mmol/L)\nPeak flow (L/min)'} /></Field>
           <Field label="Specific symptom questions" hint="One question per line. The patient will also have a general symptom field."><textarea className="input" rows={3} maxLength={1500} value={form.symptomQuestions} onChange={(e) => setForm({ ...form, symptomQuestions: e.target.value })} placeholder={'For example:\nHave you felt short of breath today?\nHas the swelling changed?'} /></Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Check-in schedule"><select className="input" value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })}><option value="daily">Daily</option><option value="twice_daily">Twice daily</option><option value="weekly">Weekly</option></select></Field>
