@@ -75,17 +75,17 @@ export default function PatientForm({ open, onClose, patient, onSaved }) {
 
         <div className="rounded-2xl bg-slate-50 p-3 sm:col-span-2">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-800">HMO cover</p>
+            <p className="text-sm font-semibold text-slate-800">HMO cover <span className="font-normal text-slate-500">(optional)</span></p>
             <Button type="button" size="sm" variant="secondary" icon={Plus} onClick={() => setForm({ ...form, hmoMemberships: [...form.hmoMemberships, { hmo: '', plan: '', memberNo: '', validTo: '' }] })}>Add HMO</Button>
           </div>
-          {!form.hmoMemberships.length && <p className="text-sm text-slate-500">No HMO. This patient pays cash.</p>}
+          {!form.hmoMemberships.length && <p className="text-sm text-slate-500">Leave this blank for patients without HMO cover. They can be registered and checked in as cash patients.</p>}
           {form.hmoMemberships.map((m, i) => {
             const h = hmos.find((x) => x._id === m.hmo);
             return (
               <div key={m._id || i} className="mb-2 grid items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_9rem_auto]">
-                <Field label="HMO"><select className="input" required value={m.hmo} onChange={(e) => setM(i, 'hmo', e.target.value)}><option value="">Choose…</option>{hmos.filter((x) => x.active).map((x) => <option key={x._id} value={x._id}>{x.name}</option>)}</select></Field>
-                <Field label="Plan"><select className="input" required value={m.plan || ''} onChange={(e) => setM(i, 'plan', e.target.value)}><option value="">Choose…</option>{(h?.plans || []).map((p) => <option key={p._id} value={p._id}>{p.name}</option>)}</select></Field>
-                <Field label="Member no."><input className="input" required value={m.memberNo || ''} onChange={(e) => setM(i, 'memberNo', e.target.value)} /></Field>
+                <Field label="HMO"><select className="input" value={m.hmo} onChange={(e) => setM(i, 'hmo', e.target.value)}><option value="">Choose…</option>{hmos.filter((x) => x.active).map((x) => <option key={x._id} value={x._id}>{x.name}</option>)}</select></Field>
+                <Field label="Plan"><select className="input" value={m.plan || ''} onChange={(e) => setM(i, 'plan', e.target.value)}><option value="">Choose…</option>{(h?.plans || []).map((p) => <option key={p._id} value={p._id}>{p.name}</option>)}</select></Field>
+                <Field label="Member no."><input className="input" value={m.memberNo || ''} onChange={(e) => setM(i, 'memberNo', e.target.value)} /></Field>
                 <Field label="Valid to"><input className="input" type="date" value={m.validTo || ''} onChange={(e) => setM(i, 'validTo', e.target.value)} /></Field>
                 <IconButton icon={Trash2} label="Remove HMO" tone="danger" onClick={() => setForm({ ...form, hmoMemberships: form.hmoMemberships.filter((_, j) => j !== i) })} />
               </div>
