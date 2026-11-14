@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Upload } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api, getToken } from '../../api.js';
 import useFetch from '../../lib/useFetch';
@@ -56,7 +57,8 @@ export default function Import() {
 
   return (
     <div>
-      <PageHeader title="Import patients" subtitle="Bring in patients from the old records: a CSV or Excel (.xlsx) file with one patient per row." />
+      <PageHeader title="Import patients" subtitle="Bring in patients from the old records: a CSV or Excel (.xlsx) file with one patient per row."
+        back={<Link to="/patients" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ArrowLeft size={15} /> Patients</Link>} />
       <div className="space-y-4">
         <Card title="1. Choose the file">
           <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 p-8 text-center hover:border-brand-400">

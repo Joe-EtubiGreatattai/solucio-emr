@@ -1,6 +1,6 @@
 import {
   Banknote, BarChart3, Building2, CalendarDays, ClipboardList, FlaskConical, HeartPulse, History, Inbox,
-  Package, Pill, ReceiptText, ScrollText, ShieldCheck, Stethoscope, Syringe, Upload, Users, Wallet,
+  Package, Pill, ReceiptText, ScrollText, ShieldCheck, Stethoscope, Syringe, Users, Wallet,
 } from 'lucide-react';
 
 export const ROLE_LABEL = {
@@ -21,7 +21,7 @@ export const ROLE_NAV = {
   ],
   doctor: [
     { to: '/doctor', label: 'My queue', icon: Stethoscope },
-    { to: '/doctor/patients', label: 'Patients', icon: Users },
+    { to: '/patients', label: 'Patients', icon: Users },
     { to: '/procedures', label: 'Procedures', icon: Syringe },
   ],
   lab: [
@@ -44,10 +44,10 @@ export const ROLE_NAV = {
   ],
   admin: [
     { to: '/admin', label: 'Price list', icon: Banknote, end: true },
+    { to: '/patients', label: 'Patients', icon: Users },
     { to: '/admin/hmos', label: 'HMOs', icon: ShieldCheck },
     { to: '/admin/clinics', label: 'Clinics', icon: Building2 },
     { to: '/admin/staff', label: 'Staff', icon: Users },
-    { to: '/admin/import', label: 'Import patients', icon: Upload },
     { to: '/reception/appointments', label: 'Online appointments', icon: CalendarDays },
     { to: '/admin/reports', label: 'Reports', icon: BarChart3 },
     { to: '/admin/audit', label: 'Activity log', icon: ScrollText },

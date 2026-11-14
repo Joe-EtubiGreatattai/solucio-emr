@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Search, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Upload, Users } from 'lucide-react';
 import { api } from '../../api.js';
+import { useAuth } from '../../auth.jsx';
 import { age, fullName } from '../../lib/format.js';
 import { Avatar, Button, Card, ErrorNote, PageHeader, Spinner } from '../../components/ui.jsx';
 
 const PAGE_SIZE = 25;
 
 export default function DoctorPatients() {
+  const { can } = useAuth();
+  const isAdmin = can('admin');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [data, setData] = useState(null);
@@ -37,7 +40,8 @@ export default function DoctorPatients() {
 
   return (
     <div>
-      <PageHeader title="Patients" subtitle="Browse the patient register and open a patient’s chart." />
+      <PageHeader title="Patients" subtitle="Browse the patient register and open a patient’s chart."
+        actions={isAdmin && <Link to="/admin/import" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"><Upload className="h-4 w-4" /> Import patients</Link>} />
       <Card bodyClass="p-0">
         <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/70 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="relative w-full sm:max-w-md">
@@ -61,7 +65,7 @@ export default function DoctorPatients() {
             <ul className="divide-y divide-slate-100">
               {data.items.map((patient) => (
                 <li key={patient._id}>
-                  <Link to={`/doctor/patients/${patient._id}`} className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-brand-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-600 sm:px-5">
+                  <Link to={`/patients/${patient._id}`} className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-brand-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-600 sm:px-5">
                     <Avatar name={fullName(patient)} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold text-slate-900">{fullName(patient)}</span>

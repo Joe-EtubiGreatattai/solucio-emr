@@ -33,6 +33,8 @@ export const routes = [
   { path: '/reception/appointments', element: <OnlineAppointments /> },
   { path: '/triage', element: <Triage /> },
   { path: '/doctor', element: <DoctorQueue /> },
+  { path: '/patients', element: <DoctorPatients /> },
+  { path: '/patients/:patientId', element: <DoctorPatientRecord /> },
   { path: '/doctor/patients', element: <DoctorPatients /> },
   { path: '/doctor/patients/:patientId', element: <DoctorPatientRecord /> },
   { path: '/doctor/visit/:visitId', element: <Consultation /> },
